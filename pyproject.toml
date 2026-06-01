@@ -1,0 +1,18 @@
+[project]
+name = "leverage-backtester"
+version = "0.1.0"
+description = "Historical leveraged Canadian portfolio backtester scaffold"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy",
+  "pandas",
+  "yfinance",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
