@@ -427,9 +427,11 @@ function fillForwardPrimeRate(rows: PrimeRateRow[], date: string): number {
   return candidate.annualRate;
 }
 
-function marginRateFromPrime(primeRate: number): number {
+//#region margin-rate-from-prime
+export function marginRateFromPrime(primeRate: number): number {
   return Math.max(0, primeRate - MARGIN_RATE_DISCOUNT);
 }
+//#endregion margin-rate-from-prime
 
 function movingAverageByDate(rows: MarketRow[], windowSize: number): Map<string, number> {
   const averages = new Map<string, number>();

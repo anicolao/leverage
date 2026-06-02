@@ -6,6 +6,7 @@ import {
   equityOutcomeHorizonDays,
   equityOutcomeStartDates,
   simulateDcaPortfolio,
+  marginRateFromPrime,
   summarizeSimulationRows
 } from './dcaSimulator';
 import type { MarketRow } from './marketData';
@@ -88,6 +89,10 @@ describe('simulateDcaPortfolio', () => {
       100_000 * 0.12 * elapsedYears,
       8
     );
+  });
+
+  test('maps 4.45% prime to 3.50% margin interest', () => {
+    expect(marginRateFromPrime(0.0445)).toBeCloseTo(0.035, 8);
   });
 
   test('never policy sells shares to pay monthly interest', () => {

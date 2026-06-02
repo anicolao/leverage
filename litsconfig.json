@@ -1,0 +1,26 @@
+{
+  "$schema": "./node_modules/litscript/schemas/litsconfig-schema.json",
+  "outDir": "./book/generated",
+  "files": ["book/**/*.md"],
+  "exclude": [
+    ".git",
+    "node_modules",
+    ".svelte-kit",
+    "src/routes/**",
+    "src/**/*.test.ts",
+    "book/examples/**/*.test.ts",
+    "tests/**",
+    "vite.config.ts"
+  ],
+  "updateToc": true,
+  "excludeFromToc": ["book/generated/**"],
+  "dependencyGraph": "dependencies.json",
+  "frontMatter": {
+    "projectName": "Leverage Backtester Book",
+    "repository": "https://github.com/anicolao/leverage",
+    "license": "",
+    "theme": "greyhound",
+    "syntaxHighlight": "monokai",
+    "footer": "Educational simulator. Not investment or tax advice."
+  }
+}
