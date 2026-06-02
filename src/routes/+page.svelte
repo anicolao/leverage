@@ -246,6 +246,7 @@
     simulationRows.reduce((total, row) => total + row.taxDeduction, 0)
   );
   let latestPrimeRate = $derived(data.primeRates.at(-1)?.annualRate ?? 0);
+  let latestMarginRate = $derived(finalSimulationRow?.marginRate ?? 0);
   let simulationValues = $derived(
     simulationRows.flatMap((row) => [row.totalAssets, row.equity, row.totalDebt])
   );
@@ -547,9 +548,10 @@
           contributions and capitalized interest, but sits outside the margin leverage target.
           Contributions and rebalancing happen monthly; the table interval only changes how
           checkpoint rows are summarized.
-          Borrowing interest uses the historical Canadian prime rate from the Bank of Canada,
-          fill-forwarded from weekly observations. Distributions are applied to HELOC interest
-          first; any remaining HELOC interest is paid by selling shares.
+          HELOC interest uses the historical Canadian prime rate from the Bank of Canada,
+          fill-forwarded from weekly observations. Margin interest uses prime less 0.95
+          percentage points. Distributions are applied to HELOC interest first; any remaining
+          HELOC interest is paid by selling shares.
         </p>
       </div>
     </div>
@@ -673,6 +675,10 @@
         <span>Latest Prime</span>
         <strong>{formatPercent(latestPrimeRate)}</strong>
       </div>
+      <div>
+        <span>Latest Margin Rate</span>
+        <strong>{formatPercent(latestMarginRate)}</strong>
+      </div>
     </div>
 
     <div class="chart-header">
@@ -785,6 +791,7 @@
               <th>Margin Call Drawdown</th>
               <th>Collapse Drawdown</th>
               <th>Prime Rate</th>
+              <th>Margin Rate</th>
               <th>Margin Interest</th>
               <th>HELOC Interest</th>
               <th>Margin Int. Sold</th>
@@ -816,6 +823,7 @@
                 <td>{formatPercentOrNa(row.marginCallDrawdown)}</td>
                 <td>{formatPercentOrNa(row.collapseDrawdown)}</td>
                 <td>{formatPercent(row.primeRate)}</td>
+                <td>{formatPercent(row.marginRate)}</td>
                 <td>{formatMoney(row.marginInterestOwing)}</td>
                 <td>{formatMoney(row.helocInterestOwing)}</td>
                 <td>{formatMoney(row.interestPaidBySale)}</td>

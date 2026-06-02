@@ -31,6 +31,7 @@ export type DcaSimulationRow = {
   shareDelta: number;
   distributionsPaid: number;
   primeRate: number;
+  marginRate: number;
   interestOwing: number;
   marginInterestOwing: number;
   helocInterestOwing: number;
@@ -57,6 +58,7 @@ export type DcaSimulationRow = {
 const DAYS_PER_YEAR = 365.25;
 const BOARD_LOT_SIZE = 100;
 const MAINTENANCE_MARGIN_REQUIREMENT = 0.3;
+const MARGIN_RATE_DISCOUNT = 0.0095;
 const DEFAULT_OUTCOME_BUCKET_WIDTH = 100_000;
 const TEN_YEARS_IN_DAYS = 3_653;
 
@@ -89,7 +91,8 @@ export function simulateDcaPortfolio(
     if (previousDate !== undefined) {
       const elapsedDays = daysBetween(previousDate, row.date);
       const primeRate = fillForwardPrimeRate(primeRates, previousDate);
-      pendingMarginInterest += marginDebt * primeRate * (elapsedDays / DAYS_PER_YEAR);
+      const marginRate = marginRateFromPrime(primeRate);
+      pendingMarginInterest += marginDebt * marginRate * (elapsedDays / DAYS_PER_YEAR);
       pendingHelocInterest += helocDebt * primeRate * (elapsedDays / DAYS_PER_YEAR);
       pendingInterest = pendingMarginInterest + pendingHelocInterest;
     }
@@ -100,6 +103,7 @@ export function simulateDcaPortfolio(
     if (monthlyDates.has(row.date)) {
       const movingAverage120 = movingAverages.get(row.date) ?? row.close;
       const primeRate = fillForwardPrimeRate(primeRates, row.date);
+      const marginRate = marginRateFromPrime(primeRate);
       const marginInterestOwing = pendingMarginInterest;
       const helocInterestOwing = pendingHelocInterest;
       const interestOwing = marginInterestOwing + helocInterestOwing;
@@ -204,6 +208,7 @@ export function simulateDcaPortfolio(
         shareDelta,
         distributionsPaid,
         primeRate,
+        marginRate,
         interestOwing,
         marginInterestOwing,
         helocInterestOwing,
@@ -420,6 +425,10 @@ function fillForwardPrimeRate(rows: PrimeRateRow[], date: string): number {
     return rows[0]?.annualRate ?? 0;
   }
   return candidate.annualRate;
+}
+
+function marginRateFromPrime(primeRate: number): number {
+  return Math.max(0, primeRate - MARGIN_RATE_DISCOUNT);
 }
 
 function movingAverageByDate(rows: MarketRow[], windowSize: number): Map<string, number> {

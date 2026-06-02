@@ -61,6 +61,35 @@ describe('simulateDcaPortfolio', () => {
     expect(result[1].interestPaidBySale).toBe(0);
   });
 
+  test('charges margin interest at prime less 95 basis points', () => {
+    const rows: MarketRow[] = [
+      { date: '2025-01-02', close: 100, dividends: 0 },
+      { date: '2025-02-03', close: 100, dividends: 0 }
+    ];
+
+    const result = simulateDcaPortfolio(rows, {
+      startDate: '2025-01-01',
+      investmentTarget: 100_000,
+      monthlyContribution: 100_000,
+      leverageTarget: 0.2,
+      maxHelocDebt: 1_000_000,
+      primeRates: [{ date: '2025-01-01', annualRate: 0.12 }],
+      capitalizationPolicy: 'always'
+    });
+
+    const elapsedYears = 32 / 365.25;
+    expect(result[1].primeRate).toBe(0.12);
+    expect(result[1].marginRate).toBeCloseTo(0.1105, 8);
+    expect(result[1].marginInterestOwing).toBeCloseTo(
+      25_000 * 0.1105 * elapsedYears,
+      8
+    );
+    expect(result[1].helocInterestOwing).toBeCloseTo(
+      100_000 * 0.12 * elapsedYears,
+      8
+    );
+  });
+
   test('never policy sells shares to pay monthly interest', () => {
     const rows: MarketRow[] = [
       { date: '2025-01-02', close: 100, dividends: 0 },
