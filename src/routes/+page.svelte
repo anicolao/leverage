@@ -10,7 +10,7 @@
 
   const width = 1100;
   const height = 560;
-  const padding = { top: 24, right: 28, bottom: 44, left: 64 };
+  const padding = { top: 24, right: 78, bottom: 44, left: 64 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
   const chartOptions = {
@@ -67,8 +67,8 @@
     ));
 
   let values = $derived(points.flatMap((row) => [row.synthetic, row.actual]));
-  let minValue = $derived(Math.min(...values));
-  let maxValue = $derived(Math.max(...values));
+  let minValue = $derived(activeChart === 'distributions' ? Math.min(0, ...values) : Math.min(...values));
+  let maxValue = $derived(activeChart === 'distributions' ? Math.max(0, ...values) : Math.max(...values));
   let minTime = $derived(Date.parse(`${points[0].date}T00:00:00Z`));
   let maxTime = $derived(Date.parse(`${points[points.length - 1].date}T00:00:00Z`));
 
@@ -131,6 +131,15 @@
     Number.isFinite(value) ? formatPercent(value) : 'n/a';
   const formatValue = (value: number, kind: ValueKind) =>
     kind === 'money' ? formatMoney(value) : value.toLocaleString('en-CA');
+  const formatAxisMoney = (value: number) =>
+    new Intl.NumberFormat('en-CA', {
+      style: 'currency',
+      currency: 'CAD',
+      notation: 'compact',
+      maximumFractionDigits: 1
+    }).format(value);
+  const formatAxisValue = (value: number, kind: ValueKind) =>
+    kind === 'money' ? formatAxisMoney(value) : value.toLocaleString('en-CA');
   const formatX = (value: string, kind: XKind) => (kind === 'year' ? value : value);
   const formatSignedMoney = (value: number) => {
     const formatted = formatMoney(Math.abs(value));
@@ -168,22 +177,34 @@
   let simulationValues = $derived(
     simulationRows.flatMap((row) => [row.shareValue, row.equity, row.totalDebt])
   );
+  let simulationPriceValues = $derived(simulationRows.map((row) => row.price));
   let simulationMinTime = $derived(
     Date.parse(`${simulationRows[0]?.date ?? simulationStartDate}T00:00:00Z`)
   );
   let simulationMaxTime = $derived(
     Date.parse(`${simulationRows.at(-1)?.date ?? simulationStartDate}T00:00:00Z`)
   );
+  let simulationMinValue = $derived(Math.min(0, ...simulationValues));
   let simulationMaxValue = $derived(Math.max(1, ...simulationValues));
+  let simulationMinPrice = $derived(Math.min(...simulationPriceValues));
+  let simulationMaxPrice = $derived(Math.max(...simulationPriceValues));
   const simulationX = (date: string) =>
     padding.left +
     ((Date.parse(`${date}T00:00:00Z`) - simulationMinTime) /
       (simulationMaxTime - simulationMinTime || 1)) *
       plotWidth;
   const simulationY = (value: number) =>
-    padding.top + (1 - value / simulationMaxValue) * plotHeight;
+    padding.top +
+    (1 - (value - simulationMinValue) / (simulationMaxValue - simulationMinValue || 1)) *
+      plotHeight;
+  const simulationPriceY = (value: number) =>
+    padding.top +
+    (1 - (value - simulationMinPrice) / (simulationMaxPrice - simulationMinPrice || 1)) *
+      plotHeight;
   const simulationLine = (key: keyof Pick<DcaSimulationRow, 'shareValue' | 'equity' | 'totalDebt'>) =>
     simulationRows.map((row) => `${simulationX(row.date)},${simulationY(row[key])}`).join(' ');
+  const simulationPriceLine = () =>
+    simulationRows.map((row) => `${simulationX(row.date)},${simulationPriceY(row.price)}`).join(' ');
   let hoveredSimulationRow = $state<DcaSimulationRow | null>(null);
   let hoveredSimulationX = $derived(
     hoveredSimulationRow ? simulationX(hoveredSimulationRow.date) : 0
@@ -316,7 +337,7 @@
           y2={y(value)}
           class="grid"
         />
-        <text x={padding.left - 12} y={y(value) + 5} text-anchor="end">{formatValue(value, chart.valueKind)}</text>
+        <text x={padding.left - 12} y={y(value) + 5} text-anchor="end">{formatAxisValue(value, chart.valueKind)}</text>
       {/each}
       {#if activeChart === 'distributions'}
         {#each bars('actual') as bar}
@@ -467,6 +488,7 @@
         <span><i class="assets"></i> Assets</span>
         <span><i class="equity"></i> Equity</span>
         <span><i class="debt"></i> Debt</span>
+        <span><i class="price"></i> Proxy price</span>
       </div>
     </div>
 
@@ -488,13 +510,13 @@
       />
       <line
         x1={padding.left}
-        y1={height - padding.bottom}
+        y1={simulationY(0)}
         x2={width - padding.right}
-        y2={height - padding.bottom}
+        y2={simulationY(0)}
         class="axis"
       />
       {#each [0, 0.25, 0.5, 0.75, 1] as tick}
-        {@const value = simulationMaxValue * tick}
+        {@const value = simulationMinValue + (simulationMaxValue - simulationMinValue) * tick}
         <line
           x1={padding.left}
           y1={simulationY(value)}
@@ -502,11 +524,23 @@
           y2={simulationY(value)}
           class="grid"
         />
-        <text x={padding.left - 12} y={simulationY(value) + 5} text-anchor="end">{formatMoney(value)}</text>
+        <text x={padding.left - 12} y={simulationY(value) + 5} text-anchor="end">{formatAxisMoney(value)}</text>
+      {/each}
+      <line
+        x1={width - padding.right}
+        y1={padding.top}
+        x2={width - padding.right}
+        y2={height - padding.bottom}
+        class="price-axis"
+      />
+      {#each [0, 0.25, 0.5, 0.75, 1] as tick}
+        {@const value = simulationMinPrice + (simulationMaxPrice - simulationMinPrice) * tick}
+        <text x={width - padding.right + 10} y={simulationPriceY(value) + 5}>{formatMoney(value)}</text>
       {/each}
       <polyline points={simulationLine('shareValue')} class="assets-line" />
       <polyline points={simulationLine('equity')} class="equity-line" />
       <polyline points={simulationLine('totalDebt')} class="debt-line" />
+      <polyline points={simulationPriceLine()} class="price-line" />
       {#if hoveredSimulationRow}
         <line
           x1={hoveredSimulationX}
@@ -516,11 +550,12 @@
           class="hover-line"
         />
         <g class="tooltip">
-          <rect x={hoveredSimulationCalloutX} y={padding.top + 10} width="256" height="108" rx="6" />
+          <rect x={hoveredSimulationCalloutX} y={padding.top + 10} width="256" height="130" rx="6" />
           <text x={hoveredSimulationCalloutX + 12} y={padding.top + 32}>{hoveredSimulationRow.date}</text>
           <text x={hoveredSimulationCalloutX + 12} y={padding.top + 54}>Assets: {formatMoney(hoveredSimulationRow.shareValue)}</text>
           <text x={hoveredSimulationCalloutX + 12} y={padding.top + 76}>Total debt: {formatMoney(hoveredSimulationRow.totalDebt)}</text>
           <text x={hoveredSimulationCalloutX + 12} y={padding.top + 98}>Equity: {formatMoney(hoveredSimulationRow.equity)}</text>
+          <text x={hoveredSimulationCalloutX + 12} y={padding.top + 120}>Proxy price: {formatMoney(hoveredSimulationRow.price)}</text>
         </g>
       {/if}
       <text x={padding.left} y={height - 12}>{simulationRows[0]?.date ?? simulationStartDate}</text>
@@ -825,6 +860,10 @@
     background: #8f351e;
   }
 
+  .legend .price {
+    background: #6a4c9c;
+  }
+
   svg {
     display: block;
     width: 100%;
@@ -837,6 +876,11 @@
 
   .axis {
     stroke: #2f3a33;
+    stroke-width: 1.5;
+  }
+
+  .price-axis {
+    stroke: #6a4c9c;
     stroke-width: 1.5;
   }
 
@@ -864,7 +908,8 @@
 
   .assets-line,
   .equity-line,
-  .debt-line {
+  .debt-line,
+  .price-line {
     fill: none;
     stroke-linecap: round;
     stroke-linejoin: round;
@@ -881,6 +926,11 @@
 
   .debt-line {
     stroke: #8f351e;
+  }
+
+  .price-line {
+    stroke: #6a4c9c;
+    stroke-dasharray: 3 6;
   }
 
   .actual-bar,
