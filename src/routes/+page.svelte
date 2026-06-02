@@ -1,9 +1,15 @@
 <script lang="ts">
   import {
+    equityOutcomeBucketsFromOutcomes,
+    equityOutcomeCompleteStartDates,
+    equityOutcomeForStartDate,
+    equityOutcomeHorizonDays,
     simulateDcaPortfolio,
     summarizeSimulationRows,
     type CapitalizationPolicy,
     type DcaSimulationRow,
+    type DcaSimulationInput,
+    type EquityOutcomeBucket,
     type SimulationInterval
   } from '$lib/backtest/dcaSimulator';
   import type { PageData } from './$types';
@@ -151,6 +157,13 @@
     new Intl.NumberFormat('en-CA', {
       maximumFractionDigits: 2
     }).format(value);
+  const formatOutcomeWindow = (days: number) => {
+    const years = days / 365.25;
+    const maximumFractionDigits = Math.abs(Math.round(years) - years) < 0.05 ? 0 : 1;
+    return `${new Intl.NumberFormat('en-CA', {
+      maximumFractionDigits
+    }).format(years)}-year`;
+  };
 
   let simulationStartDate = $state(initialSimulationStartDate());
   let investmentTarget = $state(500_000);
@@ -159,16 +172,54 @@
   let leverageTargetPercent = $state(20);
   let capitalizationPolicy = $state<CapitalizationPolicy>('always');
   let simulationInterval = $state<SimulationInterval>('monthly');
+  let outcomeHorizonYears = $state(10);
+  let simulationInput = $derived({
+    startDate: simulationStartDate,
+    investmentTarget,
+    monthlyContribution,
+    leverageTarget: Math.min(0.95, Math.max(0, leverageTargetPercent / 100)),
+    maxHelocDebt,
+    primeRates: data.primeRates,
+    capitalizationPolicy
+  });
   let simulationRows = $derived(
-    simulateDcaPortfolio(data.simulationSeries, {
-      startDate: simulationStartDate,
-      investmentTarget,
-      monthlyContribution,
-      leverageTarget: Math.min(0.95, Math.max(0, leverageTargetPercent / 100)),
-      maxHelocDebt,
-      primeRates: data.primeRates,
-      capitalizationPolicy
-    })
+    simulateDcaPortfolio(data.simulationSeries, simulationInput)
+  );
+  let outcomeHorizonDays = $derived(
+    equityOutcomeHorizonDays(outcomeHorizonYears)
+  );
+  let outcomeStartDates = $derived(
+    equityOutcomeCompleteStartDates(
+      data.simulationSeries,
+      simulationInput.startDate,
+      outcomeHorizonDays,
+      1_000
+    )
+  );
+  let outcomeStartRange = $derived(
+    outcomeStartDates.length === 0
+      ? 'no complete start dates'
+      : `${outcomeStartDates[0]} to ${outcomeStartDates.at(-1)}`
+  );
+  let outcomeBuckets = $state<EquityOutcomeBucket[]>([]);
+  let outcomeCompletedCount = $state(0);
+  let outcomeCalculationTotal = $state(0);
+  let isOutcomeCalculating = $state(false);
+  let outcomeCalculationId = 0;
+  let outcomeSampleCount = $derived(outcomeStartDates.length);
+  let displayedOutcomeTotal = $derived(outcomeCalculationTotal || outcomeSampleCount);
+  let outcomeProgress = $derived(
+    displayedOutcomeTotal === 0 ? 0 : outcomeCompletedCount / displayedOutcomeTotal
+  );
+  let outcomeProgressLabel = $derived(
+    displayedOutcomeTotal === 0
+      ? 'No complete outcome starts'
+      : isOutcomeCalculating || outcomeCompletedCount < displayedOutcomeTotal
+        ? 'Calculating outcome starts'
+        : 'Outcome starts calculated'
+  );
+  let maxOutcomePercent = $derived(
+    Math.max(0.01, ...outcomeBuckets.map((bucket) => bucket.percent))
   );
   let summarizedSimulationRows = $derived(summarizeSimulationRows(simulationRows, simulationInterval));
   let simulationTableRows = $derived([...summarizedSimulationRows].reverse());
@@ -237,6 +288,70 @@
   function handleSimulationPointer(event: PointerEvent) {
     const svg = event.currentTarget as SVGSVGElement;
     hoveredSimulationRow = nearestPoint(simulationRows, pointerSvgX(event, svg), simulationX);
+  }
+
+  $effect(() => {
+    const startDates = outcomeStartDates;
+    const input = simulationInput;
+    const horizonDays = outcomeHorizonDays;
+    const calculationId = ++outcomeCalculationId;
+
+    outcomeBuckets = [];
+    outcomeCompletedCount = 0;
+    outcomeCalculationTotal = startDates.length;
+    isOutcomeCalculating = startDates.length > 0;
+
+    void calculateOutcomeBuckets(calculationId, startDates, input, horizonDays);
+  });
+
+  async function calculateOutcomeBuckets(
+    calculationId: number,
+    startDates: string[],
+    input: DcaSimulationInput,
+    horizonDays: number
+  ) {
+    if (startDates.length === 0) {
+      isOutcomeCalculating = false;
+      return;
+    }
+
+    const sortedRows = [...data.simulationSeries].sort((left, right) =>
+      left.date.localeCompare(right.date)
+    );
+    const outcomes: number[] = [];
+
+    for (let index = 0; index < startDates.length; index += 1) {
+      if (calculationId !== outcomeCalculationId) {
+        return;
+      }
+
+      const finalEquity = equityOutcomeForStartDate(
+        sortedRows,
+        input,
+        startDates[index],
+        horizonDays
+      );
+      if (finalEquity !== undefined && Number.isFinite(finalEquity)) {
+        outcomes.push(finalEquity);
+      }
+
+      outcomeCompletedCount = index + 1;
+      if (index % 10 === 9) {
+        await yieldToBrowser();
+      }
+    }
+
+    if (calculationId !== outcomeCalculationId) {
+      return;
+    }
+    outcomeBuckets = equityOutcomeBucketsFromOutcomes(outcomes, 100_000);
+    isOutcomeCalculating = false;
+  }
+
+  function yieldToBrowser() {
+    return new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
   }
 
   function initialSimulationStartDate() {
@@ -467,6 +582,15 @@
           <option value="monthly">Monthly</option>
           <option value="quarterly">Quarterly</option>
           <option value="annually">Annually</option>
+        </select>
+      </label>
+      <label>
+        <span>Outcome horizon</span>
+        <select bind:value={outcomeHorizonYears}>
+          <option value={5}>5 years</option>
+          <option value={10}>10 years</option>
+          <option value={15}>15 years</option>
+          <option value={20}>20 years</option>
         </select>
       </label>
       <label>
@@ -707,6 +831,43 @@
         </table>
       </div>
     </div>
+
+    <div class="histogram-panel">
+      <div class="table-header">
+        <h3>{formatOutcomeWindow(outcomeHorizonDays)} final equity outcome by start date</h3>
+        <span>{outcomeSampleCount.toLocaleString('en-CA')} complete starts, {outcomeStartRange}, cumulative $100k lower-bound buckets</span>
+      </div>
+      <div class="progress-meter" aria-live="polite">
+        <div class="progress-copy">
+          <span>{outcomeProgressLabel}</span>
+          <strong>{outcomeCompletedCount.toLocaleString('en-CA')} / {displayedOutcomeTotal.toLocaleString('en-CA')}</strong>
+        </div>
+        <div class="progress-track" role="progressbar" aria-valuenow={Math.round(outcomeProgress * 100)} aria-valuemin="0" aria-valuemax="100">
+          <i style={`width: ${outcomeProgress * 100}%`}></i>
+        </div>
+      </div>
+      <div class="histogram">
+        {#each outcomeBuckets as bucket}
+          <div class="histogram-row" class:percentile-row={bucket.percentiles.length > 0}>
+            <span class="bucket-label">
+              <span>&ge; {formatSignedMoney(bucket.bucketStart)}</span>
+              {#if bucket.percentiles.length > 0}
+                <span class="percentile-tags">
+                  {#each bucket.percentiles as percentile}
+                    <b>P{percentile}</b>
+                  {/each}
+                </span>
+              {/if}
+            </span>
+            <div class="histogram-track">
+              <i style={`width: ${(bucket.percent / maxOutcomePercent) * 100}%`}></i>
+            </div>
+            <strong>{formatPercent(bucket.percent)}</strong>
+            <small>{bucket.count}</small>
+          </div>
+        {/each}
+      </div>
+    </div>
   </section>
 </main>
 
@@ -802,10 +963,17 @@
   }
 
   .control-grid {
+    position: sticky;
+    top: 0;
+    z-index: 4;
     display: grid;
     grid-template-columns: repeat(5, minmax(140px, 1fr));
     gap: 12px;
-    margin-bottom: 16px;
+    margin: 0 -8px 16px;
+    padding: 10px 8px;
+    border-bottom: 1px solid #d9ddd2;
+    background: rgba(247, 247, 242, 0.96);
+    backdrop-filter: blur(8px);
   }
 
   .control-grid label {
@@ -1070,6 +1238,108 @@
     border-radius: 8px;
     background: #fffdfa;
     overflow: hidden;
+  }
+
+  .histogram-panel {
+    margin-top: 24px;
+  }
+
+  .histogram {
+    display: grid;
+    gap: 8px;
+    padding: 14px 0 0;
+  }
+
+  .progress-meter {
+    display: grid;
+    gap: 8px;
+    padding: 12px 0 4px;
+  }
+
+  .progress-copy {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    color: #46544b;
+    font-size: 0.86rem;
+  }
+
+  .progress-copy strong {
+    color: #18201b;
+  }
+
+  .progress-track {
+    height: 10px;
+    overflow: hidden;
+    border-radius: 4px;
+    background: #e3eadf;
+  }
+
+  .progress-track i {
+    display: block;
+    height: 100%;
+    min-width: 2px;
+    border-radius: 4px;
+    background: #2f7d4f;
+    transition: width 120ms ease-out;
+  }
+
+  .histogram-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.1fr) minmax(180px, 3fr) 68px 44px;
+    align-items: center;
+    gap: 12px;
+    color: #334139;
+    font-size: 0.88rem;
+  }
+
+  .histogram-row.percentile-row {
+    color: #18201b;
+    font-weight: 800;
+  }
+
+  .bucket-label {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .percentile-tags {
+    display: inline-flex;
+    gap: 6px;
+    color: #2f7d4f;
+    font-size: 0.78rem;
+  }
+
+  .histogram-track {
+    height: 18px;
+    overflow: hidden;
+    border-radius: 4px;
+    background: #e3eadf;
+  }
+
+  .histogram-track i {
+    display: block;
+    height: 100%;
+    min-width: 2px;
+    border-radius: 4px;
+    background: #6f8f7b;
+  }
+
+  .histogram-row.percentile-row .histogram-track i {
+    background: #2f7d4f;
+  }
+
+  .histogram-row strong,
+  .histogram-row small {
+    text-align: right;
+  }
+
+  .histogram-row small {
+    color: #647064;
+    font-size: 0.78rem;
   }
 
   .table-header {

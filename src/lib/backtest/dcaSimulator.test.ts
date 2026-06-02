@@ -1,6 +1,13 @@
 import { describe, expect, test } from 'vitest';
 
-import { simulateDcaPortfolio, summarizeSimulationRows } from './dcaSimulator';
+import {
+  equityOutcomeCompleteStartDates,
+  equityOutcomeHistogram,
+  equityOutcomeHorizonDays,
+  equityOutcomeStartDates,
+  simulateDcaPortfolio,
+  summarizeSimulationRows
+} from './dcaSimulator';
 import type { MarketRow } from './marketData';
 
 describe('simulateDcaPortfolio', () => {
@@ -291,5 +298,129 @@ describe('simulateDcaPortfolio', () => {
     ]);
     expect(summary.map((row) => row.date)).toEqual(['2025-04-01', '2026-01-02']);
     expect(summary[0].contribution).toBe(200_000);
+  });
+
+  test('builds final equity outcome histogram across rolling start dates', () => {
+    const rows: MarketRow[] = [
+      { date: '2025-01-02', close: 100, dividends: 0 },
+      { date: '2025-02-03', close: 90, dividends: 0 },
+      { date: '2025-03-03', close: 80, dividends: 0 }
+    ];
+
+    const buckets = equityOutcomeHistogram(
+      rows,
+      {
+        startDate: '2025-01-01',
+        investmentTarget: 100_000,
+        monthlyContribution: 100_000,
+        leverageTarget: 0.2,
+        maxHelocDebt: 1_000_000,
+        primeRates: [{ date: '2025-01-01', annualRate: 0 }],
+        capitalizationPolicy: 'always'
+      },
+      3,
+      100_000,
+      0
+    );
+
+    expect(buckets).toEqual([
+      {
+        bucketStart: 0,
+        bucketEnd: 100_000,
+        count: 3,
+        percent: 1,
+        percentiles: [25, 50, 75]
+      }
+    ]);
+  });
+
+  test('reports cumulative equity outcome buckets with percentile markers', () => {
+    const rows: MarketRow[] = [
+      { date: '2025-01-02', close: 120, dividends: 0 },
+      { date: '2025-02-03', close: 100, dividends: 0 },
+      { date: '2025-03-03', close: 80, dividends: 0 },
+      { date: '2025-04-01', close: 120, dividends: 0 }
+    ];
+
+    const buckets = equityOutcomeHistogram(
+      rows,
+      {
+        startDate: '2025-01-01',
+        investmentTarget: 100_000,
+        monthlyContribution: 100_000,
+        leverageTarget: 0.2,
+        maxHelocDebt: 1_000_000,
+        primeRates: [{ date: '2025-01-01', annualRate: 0 }],
+        capitalizationPolicy: 'always'
+      },
+      3,
+      25_000,
+      29
+    );
+
+    expect(buckets.map((bucket) => ({
+      bucketStart: bucket.bucketStart,
+      count: bucket.count,
+      percent: bucket.percent,
+      percentiles: bucket.percentiles
+    }))).toEqual([
+      { bucketStart: -25_000, count: 3, percent: 1, percentiles: [25] },
+      { bucketStart: 0, count: 2, percent: 2 / 3, percentiles: [50] },
+      { bucketStart: 50_000, count: 1, percent: 1 / 3, percentiles: [75] }
+    ]);
+  });
+
+  test('centers rolling outcome starts on the selected start date', () => {
+    const rows: MarketRow[] = [
+      { date: '2025-01-02', close: 100, dividends: 0 },
+      { date: '2025-02-03', close: 100, dividends: 0 },
+      { date: '2025-03-03', close: 100, dividends: 0 },
+      { date: '2025-04-01', close: 100, dividends: 0 },
+      { date: '2025-05-01', close: 100, dividends: 0 }
+    ];
+
+    expect(equityOutcomeStartDates(rows, '2025-03-03', 3)).toEqual([
+      '2025-02-03',
+      '2025-03-03',
+      '2025-04-01'
+    ]);
+  });
+
+  test('clamps rolling outcome starts to the beginning of the simulation data', () => {
+    const rows: MarketRow[] = [
+      { date: '2025-01-02', close: 100, dividends: 0 },
+      { date: '2025-02-03', close: 100, dividends: 0 },
+      { date: '2025-03-03', close: 100, dividends: 0 },
+      { date: '2025-04-01', close: 100, dividends: 0 },
+      { date: '2025-05-01', close: 100, dividends: 0 }
+    ];
+
+    expect(equityOutcomeStartDates(rows, '2025-01-02', 3)).toEqual([
+      '2025-01-02',
+      '2025-02-03',
+      '2025-03-03'
+    ]);
+  });
+
+  test('filters outcome starts to dates with a complete fixed horizon', () => {
+    const rows: MarketRow[] = [
+      { date: '2025-01-02', close: 100, dividends: 0 },
+      { date: '2025-02-03', close: 100, dividends: 0 },
+      { date: '2025-03-03', close: 100, dividends: 0 },
+      { date: '2025-04-01', close: 100, dividends: 0 }
+    ];
+
+    expect(equityOutcomeCompleteStartDates(rows, '2025-02-03', 4, 4)).toEqual([
+      '2025-01-02',
+      '2025-02-03',
+      '2025-03-03'
+    ]);
+  });
+
+  test('uses an explicit fixed outcome horizon', () => {
+    expect(equityOutcomeHorizonDays(5)).toBe(1_826);
+    expect(equityOutcomeHorizonDays(10)).toBe(3_653);
+    expect(equityOutcomeHorizonDays(15)).toBe(5_479);
+    expect(equityOutcomeHorizonDays(20)).toBe(7_305);
   });
 });
