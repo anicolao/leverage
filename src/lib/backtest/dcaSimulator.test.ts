@@ -96,10 +96,10 @@ describe('simulateDcaPortfolio', () => {
 
   test('uses distributions before selling shares to pay HELOC interest', () => {
     const rows: MarketRow[] = [
-      { date: '2025-01-02', close: 100, dividends: 0 },
-      { date: '2025-01-15', close: 100, dividends: 1 },
-      { date: '2025-02-03', close: 100, dividends: 0 },
-      { date: '2025-03-03', close: 100, dividends: 0 }
+      { date: '2025-01-02', close: 125, dividends: 0 },
+      { date: '2025-01-15', close: 125, dividends: 1.5 },
+      { date: '2025-02-03', close: 125, dividends: 0 },
+      { date: '2025-03-03', close: 125, dividends: 0 }
     ];
 
     const result = simulateDcaPortfolio(rows, {
@@ -111,29 +111,80 @@ describe('simulateDcaPortfolio', () => {
       capitalizationPolicy: 'always'
     });
 
-    expect(result[1].distributionsPaid).toBeCloseTo(1_250, 8);
+    expect(result[1].distributionsPaid).toBeCloseTo(1_500, 8);
+    expect(result[1].taxDeduction).toBeCloseTo(
+      result[1].interestOwing - result[1].distributionsPaid,
+      8
+    );
     expect(result[1].helocInterestOwing).toBeGreaterThan(0);
     expect(result[1].helocInterestPaidByDistributions).toBeCloseTo(
       result[1].helocInterestOwing,
       8
     );
     expect(result[1].helocInterestPaidBySale).toBe(0);
-    expect(result[1].distributionCashBalance).toBeGreaterThan(0);
+    expect(result[1].cashBalance).toBeGreaterThan(0);
     expect(result[1].equity).toBeCloseTo(
       result[1].totalAssets - result[1].totalDebt,
       8
     );
 
     expect(result[2].distributionsPaid).toBe(0);
+    const carriedCashUsed = Math.min(result[2].helocInterestOwing, result[1].cashBalance);
     expect(result[2].helocInterestPaidByDistributions).toBeCloseTo(
-      result[1].distributionCashBalance,
+      carriedCashUsed,
       8
     );
     expect(result[2].helocInterestPaidBySale).toBeCloseTo(
-      result[2].helocInterestOwing - result[1].distributionCashBalance,
+      result[2].helocInterestOwing - carriedCashUsed,
       8
     );
-    expect(result[2].distributionCashBalance).toBe(0);
+  });
+
+  test('rounds rebalancing trades to the nearest 100-share board lot', () => {
+    const rows: MarketRow[] = [
+      { date: '2025-01-02', close: 97, dividends: 0 },
+      { date: '2025-02-03', close: 97, dividends: 0 }
+    ];
+
+    const result = simulateDcaPortfolio(rows, {
+      startDate: '2025-01-01',
+      investmentTarget: 100_000,
+      monthlyContribution: 100_000,
+      leverageTarget: 0.2,
+      primeRates: [{ date: '2025-01-01', annualRate: 0 }],
+      capitalizationPolicy: 'always'
+    });
+
+    expect(result[0].shares).toBe(1_300);
+    expect(result[0].shareDelta).toBe(1_300);
+    expect(result[0].tradeAmount).toBe(126_100);
+    expect(result[0].cashBalance).toBeCloseTo(-1_100, 8);
+    expect(result[0].shareValue).toBe(126_100);
+    expect(result[0].totalAssets).toBeCloseTo(125_000, 8);
+    expect(result[0].marginDebt).toBeCloseTo(25_000, 8);
+  });
+
+  test('does not accumulate negative cash beyond half a board lot', () => {
+    const rows: MarketRow[] = [
+      { date: '2025-01-02', close: 97, dividends: 0 },
+      { date: '2025-02-03', close: 97, dividends: 0 },
+      { date: '2025-03-03', close: 97, dividends: 0 },
+      { date: '2025-04-01', close: 97, dividends: 0 },
+      { date: '2025-05-01', close: 97, dividends: 0 }
+    ];
+
+    const result = simulateDcaPortfolio(rows, {
+      startDate: '2025-01-01',
+      investmentTarget: 100_000,
+      monthlyContribution: 100_000,
+      leverageTarget: 0.2,
+      primeRates: [{ date: '2025-01-01', annualRate: 0 }],
+      capitalizationPolicy: 'always'
+    });
+
+    for (const row of result) {
+      expect(row.cashBalance).toBeGreaterThanOrEqual(-50 * row.price);
+    }
   });
 
   test('quarterly summary does not change monthly contribution cadence', () => {
@@ -162,6 +213,10 @@ describe('simulateDcaPortfolio', () => {
     ]);
     expect(summary.map((row) => row.date)).toEqual(['2025-02-03', '2025-04-01', '2025-07-01']);
     expect(summary[0].contribution).toBe(200_000);
+    expect(summary[0].taxDeduction).toBeCloseTo(
+      result[0].taxDeduction + result[1].taxDeduction,
+      8
+    );
   });
 
   test('annual summary groups monthly contribution checkpoints by year', () => {

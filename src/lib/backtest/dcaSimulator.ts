@@ -26,13 +26,14 @@ export type DcaSimulationRow = {
   interestOwing: number;
   marginInterestOwing: number;
   helocInterestOwing: number;
+  taxDeduction: number;
   interestPaidBySale: number;
   helocInterestPaidByDistributions: number;
   helocInterestPaidBySale: number;
   interestCapitalized: number;
   shares: number;
   shareValue: number;
-  distributionCashBalance: number;
+  cashBalance: number;
   totalAssets: number;
   marginDebt: number;
   helocDebt: number;
@@ -42,6 +43,7 @@ export type DcaSimulationRow = {
 };
 
 const DAYS_PER_YEAR = 365.25;
+const BOARD_LOT_SIZE = 100;
 
 export function simulateDcaPortfolio(
   marketRows: MarketRow[],
@@ -65,6 +67,7 @@ export function simulateDcaPortfolio(
   let pendingHelocInterest = 0;
   let pendingDistributions = 0;
   let distributionCashBalance = 0;
+  let roundingCashBalance = 0;
   let previousDate = rows[0]?.date;
 
   for (const row of rows) {
@@ -86,6 +89,7 @@ export function simulateDcaPortfolio(
       const helocInterestOwing = pendingHelocInterest;
       const interestOwing = marginInterestOwing + helocInterestOwing;
       const distributionsPaid = pendingDistributions;
+      const taxDeduction = interestOwing - distributionsPaid;
       let interestPaidBySale = 0;
       let helocInterestPaidByDistributions = 0;
       let helocInterestPaidBySale = 0;
@@ -140,14 +144,18 @@ export function simulateDcaPortfolio(
           : brokerageEquityAfterContribution / (1 - input.leverageTarget)
       );
       const desiredMarginDebt = Math.max(0, desiredShareValue * input.leverageTarget);
-      const tradeAmount = desiredShareValue - shareValueBeforeTrade;
-      const shareDelta = tradeAmount / row.close;
-      shares = Math.max(0, shares + shareDelta);
+      const desiredShares = desiredShareValue / row.close;
+      const roundedShares = roundSharesToNearestBoardLot(desiredShares);
+      const shareDelta = roundedShares - shares;
+      const tradeAmount = shareDelta * row.close;
+      shares = roundedShares;
+      roundingCashBalance = desiredShareValue - shares * row.close;
 
       marginDebt = desiredMarginDebt;
 
       const shareValue = shares * row.close;
-      const totalAssets = shareValue + distributionCashBalance;
+      const cashBalance = distributionCashBalance + roundingCashBalance;
+      const totalAssets = shareValue + cashBalance;
       const totalDebt = marginDebt + helocDebt;
       const equity = totalAssets - totalDebt;
       results.push({
@@ -163,13 +171,14 @@ export function simulateDcaPortfolio(
         interestOwing,
         marginInterestOwing,
         helocInterestOwing,
+        taxDeduction,
         interestPaidBySale,
         helocInterestPaidByDistributions,
         helocInterestPaidBySale,
         interestCapitalized,
         shares,
         shareValue,
-        distributionCashBalance,
+        cashBalance,
         totalAssets,
         marginDebt,
         helocDebt,
@@ -215,6 +224,7 @@ export function summarizeSimulationRows(
       interestOwing: sum(group, 'interestOwing'),
       marginInterestOwing: sum(group, 'marginInterestOwing'),
       helocInterestOwing: sum(group, 'helocInterestOwing'),
+      taxDeduction: sum(group, 'taxDeduction'),
       interestPaidBySale: sum(group, 'interestPaidBySale'),
       helocInterestPaidByDistributions: sum(group, 'helocInterestPaidByDistributions'),
       helocInterestPaidBySale: sum(group, 'helocInterestPaidBySale'),
@@ -286,6 +296,13 @@ function firstTradingDateByInterval(
     }
   }
   return dates;
+}
+
+function roundSharesToNearestBoardLot(shares: number): number {
+  if (shares <= 0) {
+    return 0;
+  }
+  return Math.round(shares / BOARD_LOT_SIZE) * BOARD_LOT_SIZE;
 }
 
 function periodKey(date: string, interval: SimulationInterval): string {

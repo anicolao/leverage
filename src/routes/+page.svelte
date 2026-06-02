@@ -189,6 +189,9 @@
   let totalDistributions = $derived(
     simulationRows.reduce((total, row) => total + row.distributionsPaid, 0)
   );
+  let totalTaxDeduction = $derived(
+    simulationRows.reduce((total, row) => total + row.taxDeduction, 0)
+  );
   let latestPrimeRate = $derived(data.primeRates.at(-1)?.annualRate ?? 0);
   let simulationValues = $derived(
     simulationRows.flatMap((row) => [row.totalAssets, row.equity, row.totalDebt])
@@ -481,8 +484,8 @@
         <strong>{formatMoney(finalSimulationRow?.totalAssets ?? 0)}</strong>
       </div>
       <div>
-        <span>Distribution Cash</span>
-        <strong>{formatMoney(finalSimulationRow?.distributionCashBalance ?? 0)}</strong>
+        <span>Cash Balance</span>
+        <strong>{formatMoney(finalSimulationRow?.cashBalance ?? 0)}</strong>
       </div>
       <div>
         <span>Total Debt</span>
@@ -519,6 +522,10 @@
       <div>
         <span>Distributions</span>
         <strong>{formatMoney(totalDistributions)}</strong>
+      </div>
+      <div>
+        <span>Tax Deduction</span>
+        <strong>{formatSignedMoney(totalTaxDeduction)}</strong>
       </div>
       <div>
         <span>Latest Prime</span>
@@ -602,7 +609,7 @@
           <text x={hoveredSimulationCalloutX + 12} y={padding.top + 54}>Assets: {formatMoney(hoveredSimulationRow.totalAssets)}</text>
           <text x={hoveredSimulationCalloutX + 12} y={padding.top + 76}>Total debt: {formatMoney(hoveredSimulationRow.totalDebt)}</text>
           <text x={hoveredSimulationCalloutX + 12} y={padding.top + 98}>Equity: {formatMoney(hoveredSimulationRow.equity)}</text>
-          <text x={hoveredSimulationCalloutX + 12} y={padding.top + 120}>Dist. cash: {formatMoney(hoveredSimulationRow.distributionCashBalance)}</text>
+          <text x={hoveredSimulationCalloutX + 12} y={padding.top + 120}>Cash: {formatMoney(hoveredSimulationRow.cashBalance)}</text>
           <text x={hoveredSimulationCalloutX + 12} y={padding.top + 142}>Proxy price: {formatMoney(hoveredSimulationRow.price)}</text>
         </g>
       {/if}
@@ -625,7 +632,7 @@
               <th>Trade</th>
               <th>Shares</th>
               <th>Share Value</th>
-              <th>Distribution Cash</th>
+              <th>Cash Balance</th>
               <th>Total Assets</th>
               <th>Margin Debt</th>
               <th>HELOC Debt</th>
@@ -640,6 +647,7 @@
               <th>HELOC Int. Sold</th>
               <th>Margin Int. to HELOC</th>
               <th>Distributions</th>
+              <th>Tax Deduction</th>
             </tr>
           </thead>
           <tbody>
@@ -651,7 +659,7 @@
                 <td class:negative={row.tradeAmount < 0}>{formatSignedMoney(row.tradeAmount)}</td>
                 <td>{formatNumber(row.shares)}</td>
                 <td>{formatMoney(row.shareValue)}</td>
-                <td>{formatMoney(row.distributionCashBalance)}</td>
+                <td>{formatMoney(row.cashBalance)}</td>
                 <td>{formatMoney(row.totalAssets)}</td>
                 <td>{formatMoney(row.marginDebt)}</td>
                 <td>{formatMoney(row.helocDebt)}</td>
@@ -666,6 +674,7 @@
                 <td>{formatMoney(row.helocInterestPaidBySale)}</td>
                 <td>{formatMoney(row.interestCapitalized)}</td>
                 <td>{formatMoney(row.distributionsPaid)}</td>
+                <td class:negative={row.taxDeduction < 0}>{formatSignedMoney(row.taxDeduction)}</td>
               </tr>
             {/each}
           </tbody>
@@ -798,7 +807,7 @@
 
   .sim-stats {
     display: grid;
-    grid-template-columns: repeat(10, minmax(100px, 1fr));
+    grid-template-columns: repeat(11, minmax(96px, 1fr));
     gap: 12px;
     margin: 0 0 18px;
   }
