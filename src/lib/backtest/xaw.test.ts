@@ -3,7 +3,12 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 
 import fixture from '../../../tests/fixtures/market-history.json';
-import { buildSyntheticXawProxy, scaleToActualAtStart, type MarketRow } from './marketData';
+import {
+  buildSyntheticXawPriceProxy,
+  buildSyntheticXawProxy,
+  scaleToActualAtStart,
+  type MarketRow
+} from './marketData';
 
 const repoRoot = fileURLToPath(new URL('../../..', import.meta.url));
 const fixturePath = fileURLToPath(new URL('../../../tests/fixtures/market-history.json', import.meta.url));
@@ -53,5 +58,39 @@ describe('synthetic XAW.TO', () => {
     expect(scaled[1].date).toBe('2015-02-20');
     expect(scaled[1].close).toBeCloseTo(20, 12);
     expect(scaled[1].dividends).toBeCloseTo(0.04, 12);
+  });
+
+  test('fills missing component dates instead of dropping their portfolio weight', () => {
+    const symbolData = {
+      SPY: [
+        { date: '2025-01-01', close: 100, dividends: 0 },
+        { date: '2025-01-02', close: 110, dividends: 0 },
+        { date: '2025-01-03', close: 110, dividends: 0 }
+      ],
+      EFA: [
+        { date: '2025-01-01', close: 100, dividends: 0 },
+        { date: '2025-01-03', close: 120, dividends: 0 }
+      ]
+    };
+    const usdCad = [
+      { date: '2025-01-01', close: 1, dividends: 0 },
+      { date: '2025-01-02', close: 1, dividends: 0 },
+      { date: '2025-01-03', close: 1, dividends: 0 }
+    ];
+    const weights = { SPY: 0.5, EFA: 0.5 };
+
+    const totalReturn = buildSyntheticXawProxy(symbolData, usdCad, weights, 0);
+    const price = buildSyntheticXawPriceProxy(symbolData, usdCad, weights, 0);
+
+    expect(totalReturn.map((row) => [row.date, row.close])).toEqual([
+      ['2025-01-01', 100],
+      ['2025-01-02', 105],
+      ['2025-01-03', 115]
+    ]);
+    expect(price.map((row) => [row.date, row.close])).toEqual([
+      ['2025-01-01', 100],
+      ['2025-01-02', 105],
+      ['2025-01-03', 115]
+    ]);
   });
 });

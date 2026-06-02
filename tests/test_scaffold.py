@@ -1,5 +1,6 @@
 import pandas as pd
 
+from leverage_backtester.data import RawSymbolData, build_synthetic_xaw_proxy
 from leverage_backtester.data import MarketData
 from leverage_backtester.rates import FixedRateProvider
 from leverage_backtester.simulator import SimulationConfig, simulate
@@ -46,3 +47,42 @@ def test_default_tax_config_handles_pre_2025_simulation_years():
     )
 
     assert 2006 in result.annual_tax.index
+
+
+def test_synthetic_xaw_proxy_fills_missing_component_dates():
+    symbol_data = {
+        "SPY": RawSymbolData.from_rows(
+            [
+                {"date": "2025-01-01", "close": 100.0, "dividends": 0.0},
+                {"date": "2025-01-02", "close": 110.0, "dividends": 0.0},
+                {"date": "2025-01-03", "close": 110.0, "dividends": 0.0},
+            ]
+        ),
+        "EFA": RawSymbolData.from_rows(
+            [
+                {"date": "2025-01-01", "close": 100.0, "dividends": 0.0},
+                {"date": "2025-01-03", "close": 120.0, "dividends": 0.0},
+            ]
+        ),
+    }
+    usdcad = RawSymbolData.from_rows(
+        [
+            {"date": "2025-01-01", "close": 1.0, "dividends": 0.0},
+            {"date": "2025-01-02", "close": 1.0, "dividends": 0.0},
+            {"date": "2025-01-03", "close": 1.0, "dividends": 0.0},
+        ]
+    ).close
+
+    synthetic = build_synthetic_xaw_proxy(
+        symbol_data,
+        usdcad,
+        weights={"SPY": 0.5, "EFA": 0.5},
+        annual_expense_ratio=0.0,
+    )
+
+    assert list(synthetic.index.strftime("%Y-%m-%d")) == [
+        "2025-01-01",
+        "2025-01-02",
+        "2025-01-03",
+    ]
+    assert synthetic["close"].tolist() == [100.0, 105.0, 115.0]

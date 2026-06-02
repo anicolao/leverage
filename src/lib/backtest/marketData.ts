@@ -40,20 +40,16 @@ export function buildSyntheticXawProxy(
   annualExpenseRatio = DEFAULT_XAW_MER,
   distributionTaxDrag = 0
 ): MarketRow[] {
-  const exchangeRates = [...usdCadRows].sort(compareDate);
   const totalReturnParts = new Map<string, number>();
   const dividendParts = new Map<string, number>();
+  const calendar = alignedSyntheticCalendar(symbolData, usdCadRows, weights);
 
   for (const [symbol, weight] of Object.entries(weights)) {
-    const rows = [...(symbolData[symbol] ?? [])].sort(compareDate);
-    const cadRows = rows.map((row) => {
-      const exchangeRate = fillForwardClose(exchangeRates, row.date);
-      return {
-        date: row.date,
-        close: row.close * exchangeRate,
-        dividends: row.dividends * exchangeRate * (1 - distributionTaxDrag)
-      };
-    });
+    const cadRows = calendar.map((row) => ({
+      date: row.date,
+      close: row.closeBySymbol[symbol] * row.usdCad,
+      dividends: row.dividendsBySymbol[symbol] * row.usdCad * (1 - distributionTaxDrag)
+    }));
 
     for (const row of totalReturnIndex(cadRows)) {
       totalReturnParts.set(row.date, (totalReturnParts.get(row.date) ?? 0) + row.close * weight);
@@ -80,21 +76,21 @@ export function buildSyntheticXawPriceProxy(
   annualExpenseRatio = DEFAULT_XAW_MER,
   distributionTaxDrag = 0
 ): MarketRow[] {
-  const exchangeRates = [...usdCadRows].sort(compareDate);
   const priceParts = new Map<string, number>();
   const dividendParts = new Map<string, number>();
   const firstCadCloseBySymbol = new Map<string, number>();
+  const calendar = alignedSyntheticCalendar(symbolData, usdCadRows, weights);
 
   for (const [symbol, weight] of Object.entries(weights)) {
-    const rows = [...(symbolData[symbol] ?? [])].sort(compareDate);
-    for (const row of rows) {
-      const exchangeRate = fillForwardClose(exchangeRates, row.date);
-      const cadClose = row.close * exchangeRate;
+    for (const row of calendar) {
+      const cadClose = row.closeBySymbol[symbol] * row.usdCad;
       const firstCadClose = firstCadCloseBySymbol.get(symbol) ?? cadClose;
       firstCadCloseBySymbol.set(symbol, firstCadClose);
       const indexedClose = (cadClose / firstCadClose) * 100;
       const indexedDividend =
-        ((row.dividends * exchangeRate * (1 - distributionTaxDrag)) / firstCadClose) * 100;
+        ((row.dividendsBySymbol[symbol] * row.usdCad * (1 - distributionTaxDrag)) /
+          firstCadClose) *
+        100;
       priceParts.set(row.date, (priceParts.get(row.date) ?? 0) + indexedClose * weight);
       dividendParts.set(row.date, (dividendParts.get(row.date) ?? 0) + indexedDividend * weight);
     }
@@ -261,6 +257,64 @@ export function annualDistributions(rows: MarketRow[]): MarketRow[] {
       close: value,
       dividends: value
     }));
+}
+
+function alignedSyntheticCalendar(
+  symbolData: WeightedSymbols,
+  usdCadRows: MarketRow[],
+  weights: Record<string, number>
+): Array<{
+  date: string;
+  usdCad: number;
+  closeBySymbol: Record<string, number>;
+  dividendsBySymbol: Record<string, number>;
+}> {
+  const symbols = Object.keys(weights);
+  const rowsBySymbol = new Map(
+    symbols.map((symbol) => [symbol, [...(symbolData[symbol] ?? [])].sort(compareDate)])
+  );
+  const exchangeRates = [...usdCadRows].sort(compareDate);
+  const dates = new Set<string>();
+  for (const rows of rowsBySymbol.values()) {
+    for (const row of rows) {
+      dates.add(row.date);
+    }
+  }
+
+  const sortedDates = [...dates].sort();
+  const indexes = new Map(symbols.map((symbol) => [symbol, 0]));
+  const lastCloseBySymbol = new Map<string, number>();
+
+  return sortedDates.flatMap((date) => {
+    const closeBySymbol: Record<string, number> = {};
+    const dividendsBySymbol: Record<string, number> = {};
+
+    for (const symbol of symbols) {
+      const rows = rowsBySymbol.get(symbol) ?? [];
+      let index = indexes.get(symbol) ?? 0;
+      while (index < rows.length && rows[index].date <= date) {
+        lastCloseBySymbol.set(symbol, rows[index].close);
+        index += 1;
+      }
+      indexes.set(symbol, index);
+
+      const close = lastCloseBySymbol.get(symbol);
+      if (close === undefined) {
+        return [];
+      }
+      closeBySymbol[symbol] = close;
+      dividendsBySymbol[symbol] = rows[index - 1]?.date === date ? rows[index - 1].dividends : 0;
+    }
+
+    return [
+      {
+        date,
+        usdCad: fillForwardClose(exchangeRates, date),
+        closeBySymbol,
+        dividendsBySymbol
+      }
+    ];
+  });
 }
 
 export function calculateComparisonStats(

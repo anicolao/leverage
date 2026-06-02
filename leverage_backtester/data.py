@@ -134,14 +134,13 @@ def build_synthetic_xaw_proxy(
     distribution_tax_drag: float = 0.0,
 ) -> pd.DataFrame:
     weights = weights or {"SPY": 0.55, "EFA": 0.35, "EEM": 0.10}
+    aligned = align_synthetic_components(symbol_data, usdcad_close, weights)
     total_return_parts: list[pd.Series] = []
     dividend_parts: list[pd.Series] = []
 
     for symbol, weight in weights.items():
-        frame = symbol_data[symbol]
-        exchange_rate = usdcad_close.reindex(frame.close.index).ffill()
-        cad_close = frame.close.mul(exchange_rate)
-        cad_dividends = frame.dividends.mul(exchange_rate).mul(
+        cad_close = aligned["close"][symbol].mul(aligned["usdcad"])
+        cad_dividends = aligned["dividends"][symbol].mul(aligned["usdcad"]).mul(
             1.0 - distribution_tax_drag
         )
         total_return_parts.append(weight * total_return_index(cad_close, cad_dividends))
@@ -153,6 +152,49 @@ def build_synthetic_xaw_proxy(
     )
     dividends = pd.concat(dividend_parts, axis=1).sum(axis=1).reindex(close.index)
     return pd.DataFrame({"close": close, "dividends": dividends.fillna(0.0)})
+
+
+def align_synthetic_components(
+    symbol_data: Mapping[str, RawSymbolData],
+    usdcad_close: pd.Series,
+    weights: Mapping[str, float],
+) -> dict[str, pd.DataFrame | pd.Series]:
+    calendar = sorted(
+        {
+            date
+            for symbol in weights
+            for date in symbol_data[symbol].close.sort_index().index
+        }
+    )
+    if not calendar:
+        raise ValueError("Synthetic XAW proxy cannot be built from empty symbol data")
+
+    index = pd.DatetimeIndex(calendar)
+    close = pd.concat(
+        {
+            symbol: symbol_data[symbol].close.sort_index().reindex(index).ffill()
+            for symbol in weights
+        },
+        axis=1,
+    )
+    dividends = pd.concat(
+        {
+            symbol: symbol_data[symbol]
+            .dividends.sort_index()
+            .reindex(index)
+            .fillna(0.0)
+            for symbol in weights
+        },
+        axis=1,
+    )
+    usdcad = usdcad_close.sort_index().reindex(index).ffill()
+    valid = close.notna().all(axis=1) & usdcad.notna()
+
+    return {
+        "close": close.loc[valid],
+        "dividends": dividends.loc[valid],
+        "usdcad": usdcad.loc[valid],
+    }
 
 
 def total_return_index(
