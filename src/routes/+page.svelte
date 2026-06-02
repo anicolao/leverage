@@ -1,8 +1,10 @@
 <script lang="ts">
   import {
     simulateDcaPortfolio,
+    summarizeSimulationRows,
     type CapitalizationPolicy,
-    type DcaSimulationRow
+    type DcaSimulationRow,
+    type SimulationInterval
   } from '$lib/backtest/dcaSimulator';
   import type { PageData } from './$types';
 
@@ -154,7 +156,8 @@
   let investmentTarget = $state(500_000);
   let monthlyContribution = $state(100_000);
   let leverageTargetPercent = $state(20);
-  let capitalizationPolicy = $state<CapitalizationPolicy>('movingAverage');
+  let capitalizationPolicy = $state<CapitalizationPolicy>('always');
+  let simulationInterval = $state<SimulationInterval>('monthly');
   let simulationRows = $derived(
     simulateDcaPortfolio(data.simulationSeries, {
       startDate: simulationStartDate,
@@ -165,17 +168,30 @@
       capitalizationPolicy
     })
   );
-  let simulationTableRows = $derived([...simulationRows].reverse());
+  let summarizedSimulationRows = $derived(summarizeSimulationRows(simulationRows, simulationInterval));
+  let simulationTableRows = $derived([...summarizedSimulationRows].reverse());
   let finalSimulationRow = $derived(simulationRows.at(-1));
   let totalInterest = $derived(
     simulationRows.reduce((total, row) => total + row.interestOwing, 0)
+  );
+  let totalMarginInterest = $derived(
+    simulationRows.reduce((total, row) => total + row.marginInterestOwing, 0)
+  );
+  let totalHelocInterest = $derived(
+    simulationRows.reduce((total, row) => total + row.helocInterestOwing, 0)
+  );
+  let totalHelocInterestPaidByDistributions = $derived(
+    simulationRows.reduce((total, row) => total + row.helocInterestPaidByDistributions, 0)
+  );
+  let totalHelocInterestPaidBySale = $derived(
+    simulationRows.reduce((total, row) => total + row.helocInterestPaidBySale, 0)
   );
   let totalDistributions = $derived(
     simulationRows.reduce((total, row) => total + row.distributionsPaid, 0)
   );
   let latestPrimeRate = $derived(data.primeRates.at(-1)?.annualRate ?? 0);
   let simulationValues = $derived(
-    simulationRows.flatMap((row) => [row.shareValue, row.equity, row.totalDebt])
+    simulationRows.flatMap((row) => [row.totalAssets, row.equity, row.totalDebt])
   );
   let simulationPriceValues = $derived(simulationRows.map((row) => row.price));
   let simulationMinTime = $derived(
@@ -201,7 +217,7 @@
     padding.top +
     (1 - (value - simulationMinPrice) / (simulationMaxPrice - simulationMinPrice || 1)) *
       plotHeight;
-  const simulationLine = (key: keyof Pick<DcaSimulationRow, 'shareValue' | 'equity' | 'totalDebt'>) =>
+  const simulationLine = (key: keyof Pick<DcaSimulationRow, 'totalAssets' | 'equity' | 'totalDebt'>) =>
     simulationRows.map((row) => `${simulationX(row.date)},${simulationY(row[key])}`).join(' ');
   const simulationPriceLine = () =>
     simulationRows.map((row) => `${simulationX(row.date)},${simulationPriceY(row.price)}`).join(' ');
@@ -409,8 +425,11 @@
         <p>
           Leverage is margin debt divided by brokerage assets. HELOC debt funds monthly
           contributions and capitalized interest, but sits outside the margin leverage target.
+          Contributions and rebalancing happen monthly; the table interval only changes how
+          checkpoint rows are summarized.
           Borrowing interest uses the historical Canadian prime rate from the Bank of Canada,
-          fill-forwarded from weekly observations.
+          fill-forwarded from weekly observations. Distributions are applied to HELOC interest
+          first; any remaining HELOC interest is paid by selling shares.
         </p>
       </div>
     </div>
@@ -434,6 +453,14 @@
         <input type="number" min="0" step="1000" bind:value={monthlyContribution} />
       </label>
       <label>
+        <span>Table interval</span>
+        <select bind:value={simulationInterval}>
+          <option value="monthly">Monthly</option>
+          <option value="quarterly">Quarterly</option>
+          <option value="annually">Annually</option>
+        </select>
+      </label>
+      <label>
         <span>Leverage target</span>
         <input type="number" min="0" max="95" step="1" bind:value={leverageTargetPercent} />
       </label>
@@ -451,7 +478,11 @@
     <div class="sim-stats">
       <div>
         <span>Final Assets</span>
-        <strong>{formatMoney(finalSimulationRow?.shareValue ?? 0)}</strong>
+        <strong>{formatMoney(finalSimulationRow?.totalAssets ?? 0)}</strong>
+      </div>
+      <div>
+        <span>Distribution Cash</span>
+        <strong>{formatMoney(finalSimulationRow?.distributionCashBalance ?? 0)}</strong>
       </div>
       <div>
         <span>Total Debt</span>
@@ -468,6 +499,22 @@
       <div>
         <span>Total Interest</span>
         <strong>{formatMoney(totalInterest)}</strong>
+      </div>
+      <div>
+        <span>Margin Interest</span>
+        <strong>{formatMoney(totalMarginInterest)}</strong>
+      </div>
+      <div>
+        <span>HELOC Interest</span>
+        <strong>{formatMoney(totalHelocInterest)}</strong>
+      </div>
+      <div>
+        <span>HELOC Int. from Distributions</span>
+        <strong>{formatMoney(totalHelocInterestPaidByDistributions)}</strong>
+      </div>
+      <div>
+        <span>HELOC Int. Sold</span>
+        <strong>{formatMoney(totalHelocInterestPaidBySale)}</strong>
       </div>
       <div>
         <span>Distributions</span>
@@ -537,7 +584,7 @@
         {@const value = simulationMinPrice + (simulationMaxPrice - simulationMinPrice) * tick}
         <text x={width - padding.right + 10} y={simulationPriceY(value) + 5}>{formatMoney(value)}</text>
       {/each}
-      <polyline points={simulationLine('shareValue')} class="assets-line" />
+      <polyline points={simulationLine('totalAssets')} class="assets-line" />
       <polyline points={simulationLine('equity')} class="equity-line" />
       <polyline points={simulationLine('totalDebt')} class="debt-line" />
       <polyline points={simulationPriceLine()} class="price-line" />
@@ -550,12 +597,13 @@
           class="hover-line"
         />
         <g class="tooltip">
-          <rect x={hoveredSimulationCalloutX} y={padding.top + 10} width="256" height="130" rx="6" />
+          <rect x={hoveredSimulationCalloutX} y={padding.top + 10} width="256" height="152" rx="6" />
           <text x={hoveredSimulationCalloutX + 12} y={padding.top + 32}>{hoveredSimulationRow.date}</text>
-          <text x={hoveredSimulationCalloutX + 12} y={padding.top + 54}>Assets: {formatMoney(hoveredSimulationRow.shareValue)}</text>
+          <text x={hoveredSimulationCalloutX + 12} y={padding.top + 54}>Assets: {formatMoney(hoveredSimulationRow.totalAssets)}</text>
           <text x={hoveredSimulationCalloutX + 12} y={padding.top + 76}>Total debt: {formatMoney(hoveredSimulationRow.totalDebt)}</text>
           <text x={hoveredSimulationCalloutX + 12} y={padding.top + 98}>Equity: {formatMoney(hoveredSimulationRow.equity)}</text>
-          <text x={hoveredSimulationCalloutX + 12} y={padding.top + 120}>Proxy price: {formatMoney(hoveredSimulationRow.price)}</text>
+          <text x={hoveredSimulationCalloutX + 12} y={padding.top + 120}>Dist. cash: {formatMoney(hoveredSimulationRow.distributionCashBalance)}</text>
+          <text x={hoveredSimulationCalloutX + 12} y={padding.top + 142}>Proxy price: {formatMoney(hoveredSimulationRow.price)}</text>
         </g>
       {/if}
       <text x={padding.left} y={height - 12}>{simulationRows[0]?.date ?? simulationStartDate}</text>
@@ -564,7 +612,7 @@
 
     <div class="data-table">
       <div class="table-header">
-        <h3>Monthly simulation checkpoints</h3>
+        <h3>Simulation checkpoints</h3>
         <span>{simulationTableRows.length.toLocaleString('en-CA')} rows, newest first</span>
       </div>
       <div class="table-scroll">
@@ -576,15 +624,21 @@
               <th>Contribution</th>
               <th>Trade</th>
               <th>Shares</th>
-              <th>Assets</th>
+              <th>Share Value</th>
+              <th>Distribution Cash</th>
+              <th>Total Assets</th>
               <th>Margin Debt</th>
               <th>HELOC Debt</th>
               <th>Total Debt</th>
               <th>Equity</th>
               <th>Margin Leverage</th>
               <th>Prime Rate</th>
-              <th>Interest</th>
-              <th>Capitalized</th>
+              <th>Margin Interest</th>
+              <th>HELOC Interest</th>
+              <th>Margin Int. Sold</th>
+              <th>HELOC Int. from Dist.</th>
+              <th>HELOC Int. Sold</th>
+              <th>Margin Int. to HELOC</th>
               <th>Distributions</th>
             </tr>
           </thead>
@@ -597,13 +651,19 @@
                 <td class:negative={row.tradeAmount < 0}>{formatSignedMoney(row.tradeAmount)}</td>
                 <td>{formatNumber(row.shares)}</td>
                 <td>{formatMoney(row.shareValue)}</td>
+                <td>{formatMoney(row.distributionCashBalance)}</td>
+                <td>{formatMoney(row.totalAssets)}</td>
                 <td>{formatMoney(row.marginDebt)}</td>
                 <td>{formatMoney(row.helocDebt)}</td>
                 <td>{formatMoney(row.totalDebt)}</td>
                 <td>{formatMoney(row.equity)}</td>
                 <td>{formatPercent(row.leverage)}</td>
                 <td>{formatPercent(row.primeRate)}</td>
-                <td>{formatMoney(row.interestOwing)}</td>
+                <td>{formatMoney(row.marginInterestOwing)}</td>
+                <td>{formatMoney(row.helocInterestOwing)}</td>
+                <td>{formatMoney(row.interestPaidBySale)}</td>
+                <td>{formatMoney(row.helocInterestPaidByDistributions)}</td>
+                <td>{formatMoney(row.helocInterestPaidBySale)}</td>
                 <td>{formatMoney(row.interestCapitalized)}</td>
                 <td>{formatMoney(row.distributionsPaid)}</td>
               </tr>
@@ -708,7 +768,7 @@
 
   .control-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(140px, 1fr));
+    grid-template-columns: repeat(5, minmax(140px, 1fr));
     gap: 12px;
     margin-bottom: 16px;
   }
@@ -738,7 +798,7 @@
 
   .sim-stats {
     display: grid;
-    grid-template-columns: repeat(7, minmax(110px, 1fr));
+    grid-template-columns: repeat(10, minmax(100px, 1fr));
     gap: 12px;
     margin: 0 0 18px;
   }

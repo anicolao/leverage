@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { simulateDcaPortfolio } from './dcaSimulator';
+import { simulateDcaPortfolio, summarizeSimulationRows } from './dcaSimulator';
 import type { MarketRow } from './marketData';
 
 describe('simulateDcaPortfolio', () => {
@@ -45,7 +45,10 @@ describe('simulateDcaPortfolio', () => {
     });
 
     expect(result[1].interestOwing).toBeGreaterThan(0);
-    expect(result[1].interestCapitalized).toBeCloseTo(result[1].interestOwing, 8);
+    expect(result[1].marginInterestOwing).toBeGreaterThan(0);
+    expect(result[1].helocInterestOwing).toBeGreaterThan(0);
+    expect(result[1].interestCapitalized).toBeCloseTo(result[1].marginInterestOwing, 8);
+    expect(result[1].helocInterestPaidBySale).toBeCloseTo(result[1].helocInterestOwing, 8);
     expect(result[1].interestPaidBySale).toBe(0);
   });
 
@@ -65,8 +68,9 @@ describe('simulateDcaPortfolio', () => {
     });
 
     expect(result[1].interestOwing).toBeGreaterThan(0);
-    expect(result[1].interestPaidBySale).toBeCloseTo(result[1].interestOwing, 8);
+    expect(result[1].interestPaidBySale).toBeCloseTo(result[1].marginInterestOwing, 8);
     expect(result[1].interestCapitalized).toBe(0);
+    expect(result[1].helocInterestPaidBySale).toBeCloseTo(result[1].helocInterestOwing, 8);
   });
 
   test('always policy capitalizes monthly interest', () => {
@@ -85,7 +89,104 @@ describe('simulateDcaPortfolio', () => {
     });
 
     expect(result[1].interestOwing).toBeGreaterThan(0);
-    expect(result[1].interestCapitalized).toBeCloseTo(result[1].interestOwing, 8);
+    expect(result[1].interestCapitalized).toBeCloseTo(result[1].marginInterestOwing, 8);
+    expect(result[1].helocInterestPaidBySale).toBeCloseTo(result[1].helocInterestOwing, 8);
     expect(result[1].interestPaidBySale).toBe(0);
+  });
+
+  test('uses distributions before selling shares to pay HELOC interest', () => {
+    const rows: MarketRow[] = [
+      { date: '2025-01-02', close: 100, dividends: 0 },
+      { date: '2025-01-15', close: 100, dividends: 1 },
+      { date: '2025-02-03', close: 100, dividends: 0 },
+      { date: '2025-03-03', close: 100, dividends: 0 }
+    ];
+
+    const result = simulateDcaPortfolio(rows, {
+      startDate: '2025-01-01',
+      investmentTarget: 100_000,
+      monthlyContribution: 100_000,
+      leverageTarget: 0.2,
+      primeRates: [{ date: '2025-01-01', annualRate: 0.12 }],
+      capitalizationPolicy: 'always'
+    });
+
+    expect(result[1].distributionsPaid).toBeCloseTo(1_250, 8);
+    expect(result[1].helocInterestOwing).toBeGreaterThan(0);
+    expect(result[1].helocInterestPaidByDistributions).toBeCloseTo(
+      result[1].helocInterestOwing,
+      8
+    );
+    expect(result[1].helocInterestPaidBySale).toBe(0);
+    expect(result[1].distributionCashBalance).toBeGreaterThan(0);
+    expect(result[1].equity).toBeCloseTo(
+      result[1].totalAssets - result[1].totalDebt,
+      8
+    );
+
+    expect(result[2].distributionsPaid).toBe(0);
+    expect(result[2].helocInterestPaidByDistributions).toBeCloseTo(
+      result[1].distributionCashBalance,
+      8
+    );
+    expect(result[2].helocInterestPaidBySale).toBeCloseTo(
+      result[2].helocInterestOwing - result[1].distributionCashBalance,
+      8
+    );
+    expect(result[2].distributionCashBalance).toBe(0);
+  });
+
+  test('quarterly summary does not change monthly contribution cadence', () => {
+    const rows: MarketRow[] = [
+      { date: '2025-01-02', close: 10, dividends: 0 },
+      { date: '2025-02-03', close: 10, dividends: 0 },
+      { date: '2025-04-01', close: 10, dividends: 0 },
+      { date: '2025-07-01', close: 10, dividends: 0 }
+    ];
+
+    const result = simulateDcaPortfolio(rows, {
+      startDate: '2025-01-01',
+      investmentTarget: 300_000,
+      monthlyContribution: 100_000,
+      leverageTarget: 0.2,
+      primeRates: [{ date: '2025-01-01', annualRate: 0 }],
+      capitalizationPolicy: 'movingAverage'
+    });
+    const summary = summarizeSimulationRows(result, 'quarterly');
+
+    expect(result.map((row) => row.date)).toEqual([
+      '2025-01-02',
+      '2025-02-03',
+      '2025-04-01',
+      '2025-07-01'
+    ]);
+    expect(summary.map((row) => row.date)).toEqual(['2025-02-03', '2025-04-01', '2025-07-01']);
+    expect(summary[0].contribution).toBe(200_000);
+  });
+
+  test('annual summary groups monthly contribution checkpoints by year', () => {
+    const rows: MarketRow[] = [
+      { date: '2025-01-02', close: 10, dividends: 0 },
+      { date: '2025-04-01', close: 10, dividends: 0 },
+      { date: '2026-01-02', close: 10, dividends: 0 }
+    ];
+
+    const result = simulateDcaPortfolio(rows, {
+      startDate: '2025-01-01',
+      investmentTarget: 200_000,
+      monthlyContribution: 100_000,
+      leverageTarget: 0.2,
+      primeRates: [{ date: '2025-01-01', annualRate: 0 }],
+      capitalizationPolicy: 'movingAverage'
+    });
+    const summary = summarizeSimulationRows(result, 'annually');
+
+    expect(result.map((row) => row.date)).toEqual([
+      '2025-01-02',
+      '2025-04-01',
+      '2026-01-02'
+    ]);
+    expect(summary.map((row) => row.date)).toEqual(['2025-04-01', '2026-01-02']);
+    expect(summary[0].contribution).toBe(200_000);
   });
 });

@@ -11,6 +11,7 @@ export type DcaSimulationInput = {
 };
 
 export type CapitalizationPolicy = 'never' | 'movingAverage' | 'negativeEquity' | 'always';
+export type SimulationInterval = 'monthly' | 'quarterly' | 'annually';
 
 export type DcaSimulationRow = {
   date: string;
@@ -23,10 +24,16 @@ export type DcaSimulationRow = {
   distributionsPaid: number;
   primeRate: number;
   interestOwing: number;
+  marginInterestOwing: number;
+  helocInterestOwing: number;
   interestPaidBySale: number;
+  helocInterestPaidByDistributions: number;
+  helocInterestPaidBySale: number;
   interestCapitalized: number;
   shares: number;
   shareValue: number;
+  distributionCashBalance: number;
+  totalAssets: number;
   marginDebt: number;
   helocDebt: number;
   totalDebt: number;
@@ -43,7 +50,7 @@ export function simulateDcaPortfolio(
   const sortedRows = [...marketRows].sort((left, right) => left.date.localeCompare(right.date));
   const movingAverages = movingAverageByDate(sortedRows, 120);
   const rows = sortedRows.filter((row) => row.date >= input.startDate);
-  const monthlyDates = firstTradingDateByMonth(rows);
+  const monthlyDates = firstTradingDateByInterval(rows, 'monthly');
   const primeRates = [...input.primeRates].sort((left, right) =>
     left.date.localeCompare(right.date)
   );
@@ -54,25 +61,37 @@ export function simulateDcaPortfolio(
   let helocDebt = 0;
   let cumulativeContribution = 0;
   let pendingInterest = 0;
+  let pendingMarginInterest = 0;
+  let pendingHelocInterest = 0;
   let pendingDistributions = 0;
+  let distributionCashBalance = 0;
   let previousDate = rows[0]?.date;
 
   for (const row of rows) {
     if (previousDate !== undefined) {
       const elapsedDays = daysBetween(previousDate, row.date);
       const primeRate = fillForwardPrimeRate(primeRates, previousDate);
-      pendingInterest += (marginDebt + helocDebt) * primeRate * (elapsedDays / DAYS_PER_YEAR);
+      pendingMarginInterest += marginDebt * primeRate * (elapsedDays / DAYS_PER_YEAR);
+      pendingHelocInterest += helocDebt * primeRate * (elapsedDays / DAYS_PER_YEAR);
+      pendingInterest = pendingMarginInterest + pendingHelocInterest;
     }
-    pendingDistributions += shares * row.dividends;
+    const distribution = shares * row.dividends;
+    pendingDistributions += distribution;
+    distributionCashBalance += distribution;
 
     if (monthlyDates.has(row.date)) {
       const movingAverage120 = movingAverages.get(row.date) ?? row.close;
       const primeRate = fillForwardPrimeRate(primeRates, row.date);
-      const interestOwing = pendingInterest;
+      const marginInterestOwing = pendingMarginInterest;
+      const helocInterestOwing = pendingHelocInterest;
+      const interestOwing = marginInterestOwing + helocInterestOwing;
+      const distributionsPaid = pendingDistributions;
       let interestPaidBySale = 0;
+      let helocInterestPaidByDistributions = 0;
+      let helocInterestPaidBySale = 0;
       let interestCapitalized = 0;
 
-      if (interestOwing > 0) {
+      if (marginInterestOwing > 0) {
         const shareValueBeforeInterest = shares * row.close;
         const equityBeforeInterest = shareValueBeforeInterest - marginDebt - helocDebt;
         const shouldCapitalize = shouldCapitalizeInterest(
@@ -83,14 +102,25 @@ export function simulateDcaPortfolio(
         );
 
         if (!shouldCapitalize && shares > 0) {
-          interestPaidBySale = Math.min(interestOwing, shares * row.close);
+          interestPaidBySale = Math.min(marginInterestOwing, shares * row.close);
           shares -= interestPaidBySale / row.close;
-          interestCapitalized = interestOwing - interestPaidBySale;
+          interestCapitalized = marginInterestOwing - interestPaidBySale;
           helocDebt += interestCapitalized;
         } else {
-          interestCapitalized = interestOwing;
+          interestCapitalized = marginInterestOwing;
           helocDebt += interestCapitalized;
         }
+      }
+      if (helocInterestOwing > 0) {
+        helocInterestPaidByDistributions = Math.min(
+          helocInterestOwing,
+          distributionCashBalance
+        );
+        distributionCashBalance -= helocInterestPaidByDistributions;
+        const remainingHelocInterest =
+          helocInterestOwing - helocInterestPaidByDistributions;
+        helocInterestPaidBySale = Math.min(remainingHelocInterest, shares * row.close);
+        shares -= helocInterestPaidBySale / row.close;
       }
 
       const contribution = Math.min(
@@ -117,8 +147,9 @@ export function simulateDcaPortfolio(
       marginDebt = desiredMarginDebt;
 
       const shareValue = shares * row.close;
+      const totalAssets = shareValue + distributionCashBalance;
       const totalDebt = marginDebt + helocDebt;
-      const equity = shareValue - totalDebt;
+      const equity = totalAssets - totalDebt;
       results.push({
         date: row.date,
         price: row.close,
@@ -127,13 +158,19 @@ export function simulateDcaPortfolio(
         cumulativeContribution,
         tradeAmount,
         shareDelta,
-        distributionsPaid: pendingDistributions,
+        distributionsPaid,
         primeRate,
         interestOwing,
+        marginInterestOwing,
+        helocInterestOwing,
         interestPaidBySale,
+        helocInterestPaidByDistributions,
+        helocInterestPaidBySale,
         interestCapitalized,
         shares,
         shareValue,
+        distributionCashBalance,
+        totalAssets,
         marginDebt,
         helocDebt,
         totalDebt,
@@ -142,6 +179,8 @@ export function simulateDcaPortfolio(
       });
 
       pendingInterest = 0;
+      pendingMarginInterest = 0;
+      pendingHelocInterest = 0;
       pendingDistributions = 0;
     }
 
@@ -149,6 +188,39 @@ export function simulateDcaPortfolio(
   }
 
   return results;
+}
+
+export function summarizeSimulationRows(
+  rows: DcaSimulationRow[],
+  interval: SimulationInterval
+): DcaSimulationRow[] {
+  if (interval === 'monthly') {
+    return rows.map((row) => ({ ...row }));
+  }
+
+  const grouped = new Map<string, DcaSimulationRow[]>();
+  for (const row of rows) {
+    const key = periodKey(row.date, interval);
+    grouped.set(key, [...(grouped.get(key) ?? []), row]);
+  }
+
+  return [...grouped.values()].map((group) => {
+    const last = group[group.length - 1];
+    return {
+      ...last,
+      contribution: sum(group, 'contribution'),
+      tradeAmount: sum(group, 'tradeAmount'),
+      shareDelta: sum(group, 'shareDelta'),
+      distributionsPaid: sum(group, 'distributionsPaid'),
+      interestOwing: sum(group, 'interestOwing'),
+      marginInterestOwing: sum(group, 'marginInterestOwing'),
+      helocInterestOwing: sum(group, 'helocInterestOwing'),
+      interestPaidBySale: sum(group, 'interestPaidBySale'),
+      helocInterestPaidByDistributions: sum(group, 'helocInterestPaidByDistributions'),
+      helocInterestPaidBySale: sum(group, 'helocInterestPaidBySale'),
+      interestCapitalized: sum(group, 'interestCapitalized')
+    };
+  });
 }
 
 function shouldCapitalizeInterest(
@@ -200,17 +272,40 @@ function movingAverageByDate(rows: MarketRow[], windowSize: number): Map<string,
   return averages;
 }
 
-function firstTradingDateByMonth(rows: MarketRow[]): Set<string> {
+function firstTradingDateByInterval(
+  rows: MarketRow[],
+  interval: SimulationInterval
+): Set<string> {
   const dates = new Set<string>();
-  let currentMonth = '';
+  let currentPeriod = '';
   for (const row of rows) {
-    const month = row.date.slice(0, 7);
-    if (month !== currentMonth) {
+    const period = periodKey(row.date, interval);
+    if (period !== currentPeriod) {
       dates.add(row.date);
-      currentMonth = month;
+      currentPeriod = period;
     }
   }
   return dates;
+}
+
+function periodKey(date: string, interval: SimulationInterval): string {
+  const year = date.slice(0, 4);
+  const month = Number(date.slice(5, 7));
+  switch (interval) {
+    case 'monthly':
+      return date.slice(0, 7);
+    case 'quarterly':
+      return `${year}-Q${Math.floor((month - 1) / 3) + 1}`;
+    case 'annually':
+      return year;
+  }
+}
+
+function sum(rows: DcaSimulationRow[], key: keyof DcaSimulationRow): number {
+  return rows.reduce((total, row) => {
+    const value = row[key];
+    return total + (typeof value === 'number' ? value : 0);
+  }, 0);
 }
 
 function daysBetween(start: string, end: string): number {

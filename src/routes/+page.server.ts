@@ -23,24 +23,45 @@ export async function load() {
   ]);
 
   const symbolData = { SPY: spy, EFA: efa, EEM: eem };
-  const distributionTaxDrag = calibrateDistributionTaxDrag(symbolData, usdCad, actualXaw);
+  const validationSymbolData = {
+    SPY: rowsFrom(spy, xawStart),
+    EFA: rowsFrom(efa, xawStart),
+    EEM: rowsFrom(eem, xawStart)
+  };
+  const validationUsdCad = rowsFrom(usdCad, xawStart);
+  const distributionTaxDrag = calibrateDistributionTaxDrag(
+    validationSymbolData,
+    validationUsdCad,
+    actualXaw
+  );
   const synthetic = buildSyntheticXawProxy(
-    symbolData,
-    usdCad,
+    validationSymbolData,
+    validationUsdCad,
     undefined,
     undefined,
     distributionTaxDrag
   );
   const actualTotalReturn = totalReturnIndex(actualXaw);
-  const syntheticPrice = buildSyntheticXawPriceProxy(
+  const validationSyntheticPrice = buildSyntheticXawPriceProxy(
+    validationSymbolData,
+    validationUsdCad,
+    undefined,
+    undefined,
+    distributionTaxDrag
+  );
+  const simulationSyntheticPriceBase = buildSyntheticXawPriceProxy(
     symbolData,
     usdCad,
     undefined,
     undefined,
     distributionTaxDrag
   );
-  const scaledSyntheticPrice = scaleToActualAtStart(syntheticPrice, actualXaw);
-  const simulationSyntheticPrice = scaleToActualAtStart(syntheticPrice, actualXaw, true);
+  const scaledSyntheticPrice = scaleToActualAtStart(validationSyntheticPrice, actualXaw);
+  const simulationSyntheticPrice = scaleToActualAtStart(
+    simulationSyntheticPriceBase,
+    actualXaw,
+    true
+  );
   const distributionSeries = {
     synthetic: annualDistributions(scaledSyntheticPrice),
     actual: annualDistributions(actualXaw)
@@ -84,6 +105,10 @@ function yahooHistoricalUrl(start: string, end: string, filter: 'history' | 'div
   url.searchParams.set('frequency', '1d');
   url.searchParams.set('includeAdjustedClose', 'true');
   return url.toString();
+}
+
+function rowsFrom<T extends { date: string }>(rows: T[], start: string): T[] {
+  return rows.filter((row) => row.date >= start);
 }
 
 function toUnixSeconds(date: string): number {
