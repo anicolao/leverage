@@ -154,6 +154,7 @@
 
   let simulationStartDate = $state(initialSimulationStartDate());
   let investmentTarget = $state(500_000);
+  let maxHelocDebt = $state(1_000_000);
   let monthlyContribution = $state(100_000);
   let leverageTargetPercent = $state(20);
   let capitalizationPolicy = $state<CapitalizationPolicy>('always');
@@ -164,6 +165,7 @@
       investmentTarget,
       monthlyContribution,
       leverageTarget: Math.min(0.95, Math.max(0, leverageTargetPercent / 100)),
+      maxHelocDebt,
       primeRates: data.primeRates,
       capitalizationPolicy
     })
@@ -452,6 +454,10 @@
         <input type="number" min="0" step="1000" bind:value={investmentTarget} />
       </label>
       <label>
+        <span>Max HELOC debt</span>
+        <input type="number" min="0" step="1000" bind:value={maxHelocDebt} />
+      </label>
+      <label>
         <span>Monthly investment</span>
         <input type="number" min="0" step="1000" bind:value={monthlyContribution} />
       </label>
@@ -498,6 +504,18 @@
       <div>
         <span>Margin Leverage</span>
         <strong>{formatPercent(finalSimulationRow?.leverage ?? 0)}</strong>
+      </div>
+      <div>
+        <span>HELOC Capacity</span>
+        <strong>{formatMoney(finalSimulationRow?.remainingHelocCapacity ?? 0)}</strong>
+      </div>
+      <div>
+        <span>Margin Call Drawdown</span>
+        <strong>{formatPercentOrNa(finalSimulationRow?.marginCallDrawdown ?? Number.NaN)}</strong>
+      </div>
+      <div>
+        <span>Collapse Drawdown</span>
+        <strong>{formatPercentOrNa(finalSimulationRow?.collapseDrawdown ?? Number.NaN)}</strong>
       </div>
       <div>
         <span>Total Interest</span>
@@ -636,15 +654,19 @@
               <th>Total Assets</th>
               <th>Margin Debt</th>
               <th>HELOC Debt</th>
+              <th>HELOC Capacity</th>
               <th>Total Debt</th>
               <th>Equity</th>
               <th>Margin Leverage</th>
+              <th>Margin Call Drawdown</th>
+              <th>Collapse Drawdown</th>
               <th>Prime Rate</th>
               <th>Margin Interest</th>
               <th>HELOC Interest</th>
               <th>Margin Int. Sold</th>
               <th>HELOC Int. from Dist.</th>
               <th>HELOC Int. Sold</th>
+              <th>HELOC Over-Limit Sold</th>
               <th>Margin Int. to HELOC</th>
               <th>Distributions</th>
               <th>Tax Deduction</th>
@@ -663,15 +685,19 @@
                 <td>{formatMoney(row.totalAssets)}</td>
                 <td>{formatMoney(row.marginDebt)}</td>
                 <td>{formatMoney(row.helocDebt)}</td>
+                <td>{formatMoney(row.remainingHelocCapacity)}</td>
                 <td>{formatMoney(row.totalDebt)}</td>
                 <td>{formatMoney(row.equity)}</td>
                 <td>{formatPercent(row.leverage)}</td>
+                <td>{formatPercentOrNa(row.marginCallDrawdown)}</td>
+                <td>{formatPercentOrNa(row.collapseDrawdown)}</td>
                 <td>{formatPercent(row.primeRate)}</td>
                 <td>{formatMoney(row.marginInterestOwing)}</td>
                 <td>{formatMoney(row.helocInterestOwing)}</td>
                 <td>{formatMoney(row.interestPaidBySale)}</td>
                 <td>{formatMoney(row.helocInterestPaidByDistributions)}</td>
                 <td>{formatMoney(row.helocInterestPaidBySale)}</td>
+                <td>{formatMoney(row.helocLimitPaidBySale)}</td>
                 <td>{formatMoney(row.interestCapitalized)}</td>
                 <td>{formatMoney(row.distributionsPaid)}</td>
                 <td class:negative={row.taxDeduction < 0}>{formatSignedMoney(row.taxDeduction)}</td>
@@ -807,7 +833,7 @@
 
   .sim-stats {
     display: grid;
-    grid-template-columns: repeat(11, minmax(96px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
     gap: 12px;
     margin: 0 0 18px;
   }

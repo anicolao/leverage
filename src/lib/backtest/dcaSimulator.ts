@@ -6,6 +6,7 @@ export type DcaSimulationInput = {
   investmentTarget: number;
   monthlyContribution: number;
   leverageTarget: number;
+  maxHelocDebt: number;
   primeRates: PrimeRateRow[];
   capitalizationPolicy: CapitalizationPolicy;
 };
@@ -30,6 +31,7 @@ export type DcaSimulationRow = {
   interestPaidBySale: number;
   helocInterestPaidByDistributions: number;
   helocInterestPaidBySale: number;
+  helocLimitPaidBySale: number;
   interestCapitalized: number;
   shares: number;
   shareValue: number;
@@ -40,10 +42,14 @@ export type DcaSimulationRow = {
   totalDebt: number;
   equity: number;
   leverage: number;
+  remainingHelocCapacity: number;
+  marginCallDrawdown: number;
+  collapseDrawdown: number;
 };
 
 const DAYS_PER_YEAR = 365.25;
 const BOARD_LOT_SIZE = 100;
+const MAINTENANCE_MARGIN_REQUIREMENT = 0.3;
 
 export function simulateDcaPortfolio(
   marketRows: MarketRow[],
@@ -93,6 +99,7 @@ export function simulateDcaPortfolio(
       let interestPaidBySale = 0;
       let helocInterestPaidByDistributions = 0;
       let helocInterestPaidBySale = 0;
+      let helocLimitPaidBySale = 0;
       let interestCapitalized = 0;
 
       if (marginInterestOwing > 0) {
@@ -153,11 +160,31 @@ export function simulateDcaPortfolio(
 
       marginDebt = desiredMarginDebt;
 
+      if (helocDebt > input.maxHelocDebt) {
+        const overage = helocDebt - input.maxHelocDebt;
+        helocLimitPaidBySale = Math.min(overage, shares * row.close);
+        shares -= helocLimitPaidBySale / row.close;
+        helocDebt -= helocLimitPaidBySale;
+      }
+
       const shareValue = shares * row.close;
       const cashBalance = distributionCashBalance + roundingCashBalance;
       const totalAssets = shareValue + cashBalance;
       const totalDebt = marginDebt + helocDebt;
       const equity = totalAssets - totalDebt;
+      const remainingHelocCapacity = Math.max(0, input.maxHelocDebt - helocDebt);
+      const marginCallDrawdown = drawdownToMaintenanceMarginCall(
+        shareValue,
+        cashBalance,
+        marginDebt,
+        MAINTENANCE_MARGIN_REQUIREMENT
+      );
+      const collapseDrawdown = drawdownToMaintenanceMarginCall(
+        shareValue,
+        cashBalance + remainingHelocCapacity,
+        marginDebt,
+        MAINTENANCE_MARGIN_REQUIREMENT
+      );
       results.push({
         date: row.date,
         price: row.close,
@@ -175,6 +202,7 @@ export function simulateDcaPortfolio(
         interestPaidBySale,
         helocInterestPaidByDistributions,
         helocInterestPaidBySale,
+        helocLimitPaidBySale,
         interestCapitalized,
         shares,
         shareValue,
@@ -184,7 +212,10 @@ export function simulateDcaPortfolio(
         helocDebt,
         totalDebt,
         equity,
-        leverage: shareValue === 0 ? 0 : marginDebt / shareValue
+        leverage: shareValue === 0 ? 0 : marginDebt / shareValue,
+        remainingHelocCapacity,
+        marginCallDrawdown,
+        collapseDrawdown
       });
 
       pendingInterest = 0;
@@ -228,6 +259,7 @@ export function summarizeSimulationRows(
       interestPaidBySale: sum(group, 'interestPaidBySale'),
       helocInterestPaidByDistributions: sum(group, 'helocInterestPaidByDistributions'),
       helocInterestPaidBySale: sum(group, 'helocInterestPaidBySale'),
+      helocLimitPaidBySale: sum(group, 'helocLimitPaidBySale'),
       interestCapitalized: sum(group, 'interestCapitalized')
     };
   });
@@ -303,6 +335,24 @@ function roundSharesToNearestBoardLot(shares: number): number {
     return 0;
   }
   return Math.round(shares / BOARD_LOT_SIZE) * BOARD_LOT_SIZE;
+}
+
+function drawdownToMaintenanceMarginCall(
+  shareValue: number,
+  cashBalance: number,
+  marginDebt: number,
+  maintenanceMarginRequirement: number
+): number {
+  if (shareValue <= 0 || marginDebt <= 0) {
+    return Number.POSITIVE_INFINITY;
+  }
+  const maximumDebtRatio = 1 - maintenanceMarginRequirement;
+  const requiredAccountAssets = marginDebt / maximumDebtRatio;
+  const requiredShareValue = requiredAccountAssets - cashBalance;
+  if (requiredShareValue <= 0) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return Math.max(0, 1 - requiredShareValue / shareValue);
 }
 
 function periodKey(date: string, interval: SimulationInterval): string {

@@ -16,6 +16,7 @@ describe('simulateDcaPortfolio', () => {
       investmentTarget: 500_000,
       monthlyContribution: 100_000,
       leverageTarget: 0.2,
+      maxHelocDebt: 1_000_000,
       primeRates: [{ date: '2025-01-01', annualRate: 0 }],
       capitalizationPolicy: 'movingAverage'
     });
@@ -40,6 +41,7 @@ describe('simulateDcaPortfolio', () => {
       investmentTarget: 100_000,
       monthlyContribution: 100_000,
       leverageTarget: 0.2,
+      maxHelocDebt: 1_000_000,
       primeRates: [{ date: '2025-01-01', annualRate: 0.12 }],
       capitalizationPolicy: 'movingAverage'
     });
@@ -63,6 +65,7 @@ describe('simulateDcaPortfolio', () => {
       investmentTarget: 100_000,
       monthlyContribution: 100_000,
       leverageTarget: 0.2,
+      maxHelocDebt: 1_000_000,
       primeRates: [{ date: '2025-01-01', annualRate: 0.12 }],
       capitalizationPolicy: 'never'
     });
@@ -84,6 +87,7 @@ describe('simulateDcaPortfolio', () => {
       investmentTarget: 100_000,
       monthlyContribution: 100_000,
       leverageTarget: 0.2,
+      maxHelocDebt: 1_000_000,
       primeRates: [{ date: '2025-01-01', annualRate: 0.12 }],
       capitalizationPolicy: 'always'
     });
@@ -107,6 +111,7 @@ describe('simulateDcaPortfolio', () => {
       investmentTarget: 100_000,
       monthlyContribution: 100_000,
       leverageTarget: 0.2,
+      maxHelocDebt: 1_000_000,
       primeRates: [{ date: '2025-01-01', annualRate: 0.12 }],
       capitalizationPolicy: 'always'
     });
@@ -151,6 +156,7 @@ describe('simulateDcaPortfolio', () => {
       investmentTarget: 100_000,
       monthlyContribution: 100_000,
       leverageTarget: 0.2,
+      maxHelocDebt: 1_000_000,
       primeRates: [{ date: '2025-01-01', annualRate: 0 }],
       capitalizationPolicy: 'always'
     });
@@ -162,6 +168,45 @@ describe('simulateDcaPortfolio', () => {
     expect(result[0].shareValue).toBe(126_100);
     expect(result[0].totalAssets).toBeCloseTo(125_000, 8);
     expect(result[0].marginDebt).toBeCloseTo(25_000, 8);
+  });
+
+  test('computes drawdowns to margin call and HELOC-cap collapse', () => {
+    const rows: MarketRow[] = [{ date: '2025-01-02', close: 125, dividends: 0 }];
+
+    const result = simulateDcaPortfolio(rows, {
+      startDate: '2025-01-01',
+      investmentTarget: 100_000,
+      monthlyContribution: 100_000,
+      leverageTarget: 0.2,
+      maxHelocDebt: 120_000,
+      primeRates: [{ date: '2025-01-01', annualRate: 0 }],
+      capitalizationPolicy: 'always'
+    });
+
+    expect(result[0].shares).toBe(1_000);
+    expect(result[0].shareValue).toBe(125_000);
+    expect(result[0].marginDebt).toBe(25_000);
+    expect(result[0].remainingHelocCapacity).toBe(20_000);
+    expect(result[0].marginCallDrawdown).toBeCloseTo(0.7142857143, 8);
+    expect(result[0].collapseDrawdown).toBeCloseTo(0.8742857143, 8);
+  });
+
+  test('sells shares to keep HELOC debt under the configured maximum', () => {
+    const rows: MarketRow[] = [{ date: '2025-01-02', close: 100, dividends: 0 }];
+
+    const result = simulateDcaPortfolio(rows, {
+      startDate: '2025-01-01',
+      investmentTarget: 100_000,
+      monthlyContribution: 100_000,
+      leverageTarget: 0.2,
+      maxHelocDebt: 80_000,
+      primeRates: [{ date: '2025-01-01', annualRate: 0 }],
+      capitalizationPolicy: 'always'
+    });
+
+    expect(result[0].helocLimitPaidBySale).toBe(20_000);
+    expect(result[0].helocDebt).toBe(80_000);
+    expect(result[0].remainingHelocCapacity).toBe(0);
   });
 
   test('does not accumulate negative cash beyond half a board lot', () => {
@@ -178,6 +223,7 @@ describe('simulateDcaPortfolio', () => {
       investmentTarget: 100_000,
       monthlyContribution: 100_000,
       leverageTarget: 0.2,
+      maxHelocDebt: 1_000_000,
       primeRates: [{ date: '2025-01-01', annualRate: 0 }],
       capitalizationPolicy: 'always'
     });
@@ -200,6 +246,7 @@ describe('simulateDcaPortfolio', () => {
       investmentTarget: 300_000,
       monthlyContribution: 100_000,
       leverageTarget: 0.2,
+      maxHelocDebt: 1_000_000,
       primeRates: [{ date: '2025-01-01', annualRate: 0 }],
       capitalizationPolicy: 'movingAverage'
     });
@@ -231,6 +278,7 @@ describe('simulateDcaPortfolio', () => {
       investmentTarget: 200_000,
       monthlyContribution: 100_000,
       leverageTarget: 0.2,
+      maxHelocDebt: 1_000_000,
       primeRates: [{ date: '2025-01-01', annualRate: 0 }],
       capitalizationPolicy: 'movingAverage'
     });
