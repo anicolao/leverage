@@ -23,6 +23,7 @@
           default = pkgs.mkShell {
             packages = [
               python
+              pkgs.nodejs_24
               pkgs.ruff
             ];
 

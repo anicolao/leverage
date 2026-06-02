@@ -1,0 +1,44 @@
+{
+  "symbols": {
+    "SPY": [
+      { "date": "2015-02-10", "close": 206.81, "dividends": 0.0 },
+      { "date": "2015-02-11", "close": 206.93, "dividends": 0.0 },
+      { "date": "2015-02-12", "close": 208.92, "dividends": 0.8 },
+      { "date": "2015-02-13", "close": 209.78, "dividends": 0.0 },
+      { "date": "2015-02-17", "close": 210.11, "dividends": 0.0 },
+      { "date": "2015-02-18", "close": 210.13, "dividends": 0.0 }
+    ],
+    "EFA": [
+      { "date": "2015-02-10", "close": 62.77, "dividends": 0.0 },
+      { "date": "2015-02-11", "close": 62.86, "dividends": 0.0 },
+      { "date": "2015-02-12", "close": 63.64, "dividends": 0.0 },
+      { "date": "2015-02-13", "close": 63.96, "dividends": 0.34 },
+      { "date": "2015-02-17", "close": 64.33, "dividends": 0.0 },
+      { "date": "2015-02-18", "close": 64.53, "dividends": 0.0 }
+    ],
+    "EEM": [
+      { "date": "2015-02-10", "close": 40.42, "dividends": 0.0 },
+      { "date": "2015-02-11", "close": 40.57, "dividends": 0.0 },
+      { "date": "2015-02-12", "close": 41.14, "dividends": 0.0 },
+      { "date": "2015-02-13", "close": 41.04, "dividends": 0.0 },
+      { "date": "2015-02-17", "close": 41.1, "dividends": 0.22 },
+      { "date": "2015-02-18", "close": 41.52, "dividends": 0.0 }
+    ],
+    "CAD=X": [
+      { "date": "2015-02-10", "close": 1.2446, "dividends": 0.0 },
+      { "date": "2015-02-11", "close": 1.2551, "dividends": 0.0 },
+      { "date": "2015-02-12", "close": 1.2495, "dividends": 0.0 },
+      { "date": "2015-02-13", "close": 1.2451, "dividends": 0.0 },
+      { "date": "2015-02-17", "close": 1.2406, "dividends": 0.0 },
+      { "date": "2015-02-18", "close": 1.2448, "dividends": 0.0 }
+    ],
+    "XAW.TO": [
+      { "date": "2015-02-10", "close": 21.07, "dividends": 0.0 },
+      { "date": "2015-02-11", "close": 21.12, "dividends": 0.0 },
+      { "date": "2015-02-12", "close": 21.29, "dividends": 0.0 },
+      { "date": "2015-02-13", "close": 21.37, "dividends": 0.0 },
+      { "date": "2015-02-17", "close": 21.38, "dividends": 0.0 },
+      { "date": "2015-02-18", "close": 21.49, "dividends": 0.0 }
+    ]
+  }
+}

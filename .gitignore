@@ -1,5 +1,7 @@
 .direnv/
 .venv/
+node_modules/
+.svelte-kit/
 __pycache__/
 *.py[cod]
 .pytest_cache/
