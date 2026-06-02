@@ -1,4 +1,9 @@
 <script lang="ts">
+  import {
+    simulateDcaPortfolio,
+    type CapitalizationPolicy,
+    type DcaSimulationRow
+  } from '$lib/backtest/dcaSimulator';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -41,6 +46,11 @@
   type ChartKey = keyof typeof chartOptions;
   type ValueKind = (typeof chartOptions)[ChartKey]['valueKind'];
   type XKind = (typeof chartOptions)[ChartKey]['xKind'];
+  type SeriesPoint = {
+    date: string;
+    actual: number;
+    synthetic: number;
+  };
 
   let activeChart = $state<ChartKey>('totalReturn');
   let chart = $derived(chartOptions[activeChart]);
@@ -85,6 +95,14 @@
         height: Math.abs(baseline - top)
       };
     });
+  let hoveredPoint = $state<SeriesPoint | null>(null);
+  let hoveredPointX = $derived(hoveredPoint ? x(hoveredPoint.date) : 0);
+  let hoveredPointCalloutX = $derived(Math.min(width - 260, Math.max(76, hoveredPointX + 12)));
+
+  function handleSeriesPointer(event: PointerEvent) {
+    const svg = event.currentTarget as SVGSVGElement;
+    hoveredPoint = nearestPoint(points, pointerSvgX(event, svg), x);
+  }
 
   let firstDate = $derived(points[0]?.date ?? data.start);
   let lastDate = $derived(points[points.length - 1]?.date ?? data.start);
@@ -118,6 +136,90 @@
     const formatted = formatMoney(Math.abs(value));
     return value < 0 ? `-${formatted}` : formatted;
   };
+  const formatNumber = (value: number) =>
+    new Intl.NumberFormat('en-CA', {
+      maximumFractionDigits: 2
+    }).format(value);
+
+  let simulationStartDate = $state(initialSimulationStartDate());
+  let investmentTarget = $state(500_000);
+  let monthlyContribution = $state(100_000);
+  let leverageTargetPercent = $state(20);
+  let capitalizationPolicy = $state<CapitalizationPolicy>('movingAverage');
+  let simulationRows = $derived(
+    simulateDcaPortfolio(data.simulationSeries, {
+      startDate: simulationStartDate,
+      investmentTarget,
+      monthlyContribution,
+      leverageTarget: Math.min(0.95, Math.max(0, leverageTargetPercent / 100)),
+      primeRates: data.primeRates,
+      capitalizationPolicy
+    })
+  );
+  let simulationTableRows = $derived([...simulationRows].reverse());
+  let finalSimulationRow = $derived(simulationRows.at(-1));
+  let totalInterest = $derived(
+    simulationRows.reduce((total, row) => total + row.interestOwing, 0)
+  );
+  let totalDistributions = $derived(
+    simulationRows.reduce((total, row) => total + row.distributionsPaid, 0)
+  );
+  let latestPrimeRate = $derived(data.primeRates.at(-1)?.annualRate ?? 0);
+  let simulationValues = $derived(
+    simulationRows.flatMap((row) => [row.shareValue, row.equity, row.totalDebt])
+  );
+  let simulationMinTime = $derived(
+    Date.parse(`${simulationRows[0]?.date ?? simulationStartDate}T00:00:00Z`)
+  );
+  let simulationMaxTime = $derived(
+    Date.parse(`${simulationRows.at(-1)?.date ?? simulationStartDate}T00:00:00Z`)
+  );
+  let simulationMaxValue = $derived(Math.max(1, ...simulationValues));
+  const simulationX = (date: string) =>
+    padding.left +
+    ((Date.parse(`${date}T00:00:00Z`) - simulationMinTime) /
+      (simulationMaxTime - simulationMinTime || 1)) *
+      plotWidth;
+  const simulationY = (value: number) =>
+    padding.top + (1 - value / simulationMaxValue) * plotHeight;
+  const simulationLine = (key: keyof Pick<DcaSimulationRow, 'shareValue' | 'equity' | 'totalDebt'>) =>
+    simulationRows.map((row) => `${simulationX(row.date)},${simulationY(row[key])}`).join(' ');
+  let hoveredSimulationRow = $state<DcaSimulationRow | null>(null);
+  let hoveredSimulationX = $derived(
+    hoveredSimulationRow ? simulationX(hoveredSimulationRow.date) : 0
+  );
+  let hoveredSimulationCalloutX = $derived(
+    Math.min(width - 280, Math.max(76, hoveredSimulationX + 12))
+  );
+
+  function handleSimulationPointer(event: PointerEvent) {
+    const svg = event.currentTarget as SVGSVGElement;
+    hoveredSimulationRow = nearestPoint(simulationRows, pointerSvgX(event, svg), simulationX);
+  }
+
+  function initialSimulationStartDate() {
+    return data.simulationSeries[0]?.date ?? data.start;
+  }
+
+  function pointerSvgX(event: PointerEvent, svg: SVGSVGElement) {
+    const rect = svg.getBoundingClientRect();
+    return ((event.clientX - rect.left) / rect.width) * width;
+  }
+
+  function nearestPoint<T extends { date: string }>(
+    rows: T[],
+    pointerX: number,
+    projectX: (date: string) => number
+  ): T | null {
+    if (rows.length === 0) {
+      return null;
+    }
+    return rows.reduce((nearest, row) =>
+      Math.abs(projectX(row.date) - pointerX) < Math.abs(projectX(nearest.date) - pointerX)
+        ? row
+        : nearest
+    );
+  }
 </script>
 
 <svelte:head>
@@ -182,7 +284,14 @@
       <a href={data.yahooLinks.dividends} target="_blank" rel="noreferrer">Yahoo XAW dividend table</a>
     </div>
 
-    <svg viewBox={`0 0 ${width} ${height}`} role="img">
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      role="img"
+      onpointermove={handleSeriesPointer}
+      onpointerleave={() => {
+        hoveredPoint = null;
+      }}
+    >
       <title>{chart.title} comparison for synthetic XAW.TO and actual XAW.TO</title>
       <line
         x1={padding.left}
@@ -220,6 +329,21 @@
         <polyline points={line('actual')} class="actual-line" />
         <polyline points={line('synthetic')} class="synthetic-line" />
       {/if}
+      {#if hoveredPoint}
+        <line
+          x1={hoveredPointX}
+          y1={padding.top}
+          x2={hoveredPointX}
+          y2={height - padding.bottom}
+          class="hover-line"
+        />
+        <g class="tooltip">
+          <rect x={hoveredPointCalloutX} y={padding.top + 10} width="236" height="86" rx="6" />
+          <text x={hoveredPointCalloutX + 12} y={padding.top + 32}>{formatX(hoveredPoint.date, chart.xKind)}</text>
+          <text x={hoveredPointCalloutX + 12} y={padding.top + 54}>{chart.actualLabel}: {formatValue(hoveredPoint.actual, chart.valueKind)}</text>
+          <text x={hoveredPointCalloutX + 12} y={padding.top + 76}>{chart.syntheticLabel}: {formatValue(hoveredPoint.synthetic, chart.valueKind)}</text>
+        </g>
+      {/if}
       <text x={padding.left} y={height - 12}>{formatX(firstDate, chart.xKind)}</text>
       <text x={width - padding.right} y={height - 12} text-anchor="end">{formatX(lastDate, chart.xKind)}</text>
     </svg>
@@ -248,6 +372,205 @@
                 <td>{formatValue(row.synthetic, chart.valueKind)}</td>
                 <td class:negative={row.difference < 0}>{formatSignedMoney(row.difference)}</td>
                 <td class:negative={row.percentDifference < 0}>{formatPercentOrNa(row.percentDifference)}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="simulator-shell" aria-label="Monthly leveraged DCA simulator">
+    <div class="simulator-header">
+      <div>
+        <p class="eyebrow">Portfolio simulator</p>
+        <h2>Monthly leveraged DCA into the synthetic proxy</h2>
+        <p>
+          Leverage is margin debt divided by brokerage assets. HELOC debt funds monthly
+          contributions and capitalized interest, but sits outside the margin leverage target.
+          Borrowing interest uses the historical Canadian prime rate from the Bank of Canada,
+          fill-forwarded from weekly observations.
+        </p>
+      </div>
+    </div>
+
+    <div class="control-grid">
+      <label>
+        <span>Start date</span>
+        <input
+          type="date"
+          min={data.simulationSeries[0]?.date}
+          max={data.simulationSeries.at(-1)?.date}
+          bind:value={simulationStartDate}
+        />
+      </label>
+      <label>
+        <span>Investment target</span>
+        <input type="number" min="0" step="1000" bind:value={investmentTarget} />
+      </label>
+      <label>
+        <span>Monthly investment</span>
+        <input type="number" min="0" step="1000" bind:value={monthlyContribution} />
+      </label>
+      <label>
+        <span>Leverage target</span>
+        <input type="number" min="0" max="95" step="1" bind:value={leverageTargetPercent} />
+      </label>
+      <label>
+        <span>Capitalize interest</span>
+        <select bind:value={capitalizationPolicy}>
+          <option value="movingAverage">120-day moving average</option>
+          <option value="negativeEquity">When equity is negative</option>
+          <option value="never">Never</option>
+          <option value="always">Always</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="sim-stats">
+      <div>
+        <span>Final Assets</span>
+        <strong>{formatMoney(finalSimulationRow?.shareValue ?? 0)}</strong>
+      </div>
+      <div>
+        <span>Total Debt</span>
+        <strong>{formatMoney(finalSimulationRow?.totalDebt ?? 0)}</strong>
+      </div>
+      <div>
+        <span>Equity</span>
+        <strong>{formatMoney(finalSimulationRow?.equity ?? 0)}</strong>
+      </div>
+      <div>
+        <span>Margin Leverage</span>
+        <strong>{formatPercent(finalSimulationRow?.leverage ?? 0)}</strong>
+      </div>
+      <div>
+        <span>Total Interest</span>
+        <strong>{formatMoney(totalInterest)}</strong>
+      </div>
+      <div>
+        <span>Distributions</span>
+        <strong>{formatMoney(totalDistributions)}</strong>
+      </div>
+      <div>
+        <span>Latest Prime</span>
+        <strong>{formatPercent(latestPrimeRate)}</strong>
+      </div>
+    </div>
+
+    <div class="chart-header">
+      <div>
+        <h2>Portfolio path</h2>
+        <p>Monthly checkpoints after interest handling, HELOC draw, contribution, and margin rebalance.</p>
+      </div>
+      <div class="legend">
+        <span><i class="assets"></i> Assets</span>
+        <span><i class="equity"></i> Equity</span>
+        <span><i class="debt"></i> Debt</span>
+      </div>
+    </div>
+
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      role="img"
+      onpointermove={handleSimulationPointer}
+      onpointerleave={() => {
+        hoveredSimulationRow = null;
+      }}
+    >
+      <title>Monthly leveraged DCA portfolio path</title>
+      <line
+        x1={padding.left}
+        y1={padding.top}
+        x2={padding.left}
+        y2={height - padding.bottom}
+        class="axis"
+      />
+      <line
+        x1={padding.left}
+        y1={height - padding.bottom}
+        x2={width - padding.right}
+        y2={height - padding.bottom}
+        class="axis"
+      />
+      {#each [0, 0.25, 0.5, 0.75, 1] as tick}
+        {@const value = simulationMaxValue * tick}
+        <line
+          x1={padding.left}
+          y1={simulationY(value)}
+          x2={width - padding.right}
+          y2={simulationY(value)}
+          class="grid"
+        />
+        <text x={padding.left - 12} y={simulationY(value) + 5} text-anchor="end">{formatMoney(value)}</text>
+      {/each}
+      <polyline points={simulationLine('shareValue')} class="assets-line" />
+      <polyline points={simulationLine('equity')} class="equity-line" />
+      <polyline points={simulationLine('totalDebt')} class="debt-line" />
+      {#if hoveredSimulationRow}
+        <line
+          x1={hoveredSimulationX}
+          y1={padding.top}
+          x2={hoveredSimulationX}
+          y2={height - padding.bottom}
+          class="hover-line"
+        />
+        <g class="tooltip">
+          <rect x={hoveredSimulationCalloutX} y={padding.top + 10} width="256" height="108" rx="6" />
+          <text x={hoveredSimulationCalloutX + 12} y={padding.top + 32}>{hoveredSimulationRow.date}</text>
+          <text x={hoveredSimulationCalloutX + 12} y={padding.top + 54}>Assets: {formatMoney(hoveredSimulationRow.shareValue)}</text>
+          <text x={hoveredSimulationCalloutX + 12} y={padding.top + 76}>Total debt: {formatMoney(hoveredSimulationRow.totalDebt)}</text>
+          <text x={hoveredSimulationCalloutX + 12} y={padding.top + 98}>Equity: {formatMoney(hoveredSimulationRow.equity)}</text>
+        </g>
+      {/if}
+      <text x={padding.left} y={height - 12}>{simulationRows[0]?.date ?? simulationStartDate}</text>
+      <text x={width - padding.right} y={height - 12} text-anchor="end">{simulationRows.at(-1)?.date ?? simulationStartDate}</text>
+    </svg>
+
+    <div class="data-table">
+      <div class="table-header">
+        <h3>Monthly simulation checkpoints</h3>
+        <span>{simulationTableRows.length.toLocaleString('en-CA')} rows, newest first</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Price</th>
+              <th>Contribution</th>
+              <th>Trade</th>
+              <th>Shares</th>
+              <th>Assets</th>
+              <th>Margin Debt</th>
+              <th>HELOC Debt</th>
+              <th>Total Debt</th>
+              <th>Equity</th>
+              <th>Margin Leverage</th>
+              <th>Prime Rate</th>
+              <th>Interest</th>
+              <th>Capitalized</th>
+              <th>Distributions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each simulationTableRows as row}
+              <tr>
+                <td>{row.date}</td>
+                <td>{formatMoney(row.price)}</td>
+                <td>{formatMoney(row.contribution)}</td>
+                <td class:negative={row.tradeAmount < 0}>{formatSignedMoney(row.tradeAmount)}</td>
+                <td>{formatNumber(row.shares)}</td>
+                <td>{formatMoney(row.shareValue)}</td>
+                <td>{formatMoney(row.marginDebt)}</td>
+                <td>{formatMoney(row.helocDebt)}</td>
+                <td>{formatMoney(row.totalDebt)}</td>
+                <td>{formatMoney(row.equity)}</td>
+                <td>{formatPercent(row.leverage)}</td>
+                <td>{formatPercent(row.primeRate)}</td>
+                <td>{formatMoney(row.interestOwing)}</td>
+                <td>{formatMoney(row.interestCapitalized)}</td>
+                <td>{formatMoney(row.distributionsPaid)}</td>
               </tr>
             {/each}
           </tbody>
@@ -331,6 +654,76 @@
 
   .chart-shell {
     padding: 16px clamp(20px, 5vw, 72px) 48px;
+  }
+
+  .simulator-shell {
+    padding: 10px clamp(20px, 5vw, 72px) 56px;
+  }
+
+  .simulator-header {
+    max-width: 980px;
+    margin-bottom: 18px;
+  }
+
+  .simulator-header p:last-child {
+    margin-top: 8px;
+    color: #5a635d;
+    line-height: 1.5;
+  }
+
+  .control-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .control-grid label {
+    display: grid;
+    gap: 6px;
+  }
+
+  .control-grid span {
+    color: #46544b;
+    font-size: 0.82rem;
+    font-weight: 800;
+  }
+
+  input,
+  select {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #c9d2c6;
+    border-radius: 6px;
+    background: #fffdfa;
+    color: #18201b;
+    font: inherit;
+    padding: 9px 10px;
+  }
+
+  .sim-stats {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(110px, 1fr));
+    gap: 12px;
+    margin: 0 0 18px;
+  }
+
+  .sim-stats div {
+    border-top: 3px solid #7b8d85;
+    padding: 10px 0 0;
+  }
+
+  .sim-stats span {
+    display: block;
+    color: #5a635d;
+    font-size: 0.82rem;
+    font-weight: 800;
+  }
+
+  .sim-stats strong {
+    display: block;
+    margin-top: 6px;
+    font-size: 1.2rem;
   }
 
   .tabs {
@@ -420,6 +813,18 @@
     background: #b55b2c;
   }
 
+  .legend .assets {
+    background: #164b7a;
+  }
+
+  .legend .equity {
+    background: #2f7d4f;
+  }
+
+  .legend .debt {
+    background: #8f351e;
+  }
+
   svg {
     display: block;
     width: 100%;
@@ -427,6 +832,7 @@
     background: #fffdfa;
     border: 1px solid #d9ddd2;
     border-radius: 8px;
+    touch-action: none;
   }
 
   .axis {
@@ -456,6 +862,27 @@
     stroke-dasharray: 8 7;
   }
 
+  .assets-line,
+  .equity-line,
+  .debt-line {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 3;
+  }
+
+  .assets-line {
+    stroke: #164b7a;
+  }
+
+  .equity-line {
+    stroke: #2f7d4f;
+  }
+
+  .debt-line {
+    stroke: #8f351e;
+  }
+
   .actual-bar,
   .synthetic-bar {
     rx: 2px;
@@ -468,6 +895,28 @@
   .synthetic-bar {
     fill: #b55b2c;
     opacity: 0.82;
+  }
+
+  .hover-line {
+    stroke: #2f3a33;
+    stroke-dasharray: 4 5;
+    stroke-width: 1.5;
+    pointer-events: none;
+  }
+
+  .tooltip {
+    pointer-events: none;
+  }
+
+  .tooltip rect {
+    fill: #18201b;
+    opacity: 0.92;
+  }
+
+  .tooltip text {
+    fill: #ffffff;
+    font-size: 0.82rem;
+    font-weight: 700;
   }
 
   .data-table {
@@ -552,6 +1001,11 @@
     .stats {
       grid-template-columns: 1fr;
       min-width: 0;
+    }
+
+    .control-grid,
+    .sim-stats {
+      grid-template-columns: 1fr;
     }
 
     .table-header {

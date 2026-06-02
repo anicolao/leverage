@@ -7,16 +7,19 @@ import {
   scaleToActualAtStart,
   totalReturnIndex
 } from '$lib/backtest/marketData';
+import { fetchCanadianPrimeRates } from '$lib/backtest/bankOfCanada';
 import { fetchYahooHistory } from '$lib/backtest/yahoo';
 
 export async function load() {
-  const start = '2015-02-10';
-  const [spy, efa, eem, usdCad, actualXaw] = await Promise.all([
-    fetchYahooHistory('SPY', start),
-    fetchYahooHistory('EFA', start),
-    fetchYahooHistory('EEM', start),
-    fetchYahooHistory('CAD=X', start),
-    fetchYahooHistory('XAW.TO', start)
+  const simulationStart = '2006-01-01';
+  const xawStart = '2015-02-10';
+  const [spy, efa, eem, usdCad, actualXaw, primeRates] = await Promise.all([
+    fetchYahooHistory('SPY', simulationStart),
+    fetchYahooHistory('EFA', simulationStart),
+    fetchYahooHistory('EEM', simulationStart),
+    fetchYahooHistory('CAD=X', simulationStart),
+    fetchYahooHistory('XAW.TO', xawStart),
+    fetchCanadianPrimeRates(simulationStart)
   ]);
 
   const symbolData = { SPY: spy, EFA: efa, EEM: eem };
@@ -37,15 +40,16 @@ export async function load() {
     distributionTaxDrag
   );
   const scaledSyntheticPrice = scaleToActualAtStart(syntheticPrice, actualXaw);
+  const simulationSyntheticPrice = scaleToActualAtStart(syntheticPrice, actualXaw, true);
   const distributionSeries = {
     synthetic: annualDistributions(scaledSyntheticPrice),
     actual: annualDistributions(actualXaw)
   };
   const stats = calculateComparisonStats(synthetic, actualTotalReturn);
-  const end = actualXaw.at(-1)?.date ?? start;
+  const end = actualXaw.at(-1)?.date ?? xawStart;
 
   return {
-    start,
+    start: xawStart,
     series: {
       totalReturn: {
         synthetic,
@@ -57,14 +61,16 @@ export async function load() {
       },
       distributions: distributionSeries
     },
+    simulationSeries: simulationSyntheticPrice,
+    primeRates,
     stats,
     calibration: {
       distributionTaxDrag
     },
     yahooLinks: {
       chart: 'https://finance.yahoo.com/quote/XAW.TO/chart/',
-      prices: yahooHistoricalUrl(start, end, 'history'),
-      dividends: yahooHistoricalUrl(start, end, 'div')
+      prices: yahooHistoricalUrl(xawStart, end, 'history'),
+      dividends: yahooHistoricalUrl(xawStart, end, 'div')
     }
   };
 }

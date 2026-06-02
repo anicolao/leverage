@@ -181,7 +181,11 @@ export function applyAnnualExpenseRatio(
   });
 }
 
-export function scaleToActualAtStart(synthetic: MarketRow[], actual: MarketRow[]): MarketRow[] {
+export function scaleToActualAtStart(
+  synthetic: MarketRow[],
+  actual: MarketRow[],
+  includeBeforeActualStart = false
+): MarketRow[] {
   const sortedSynthetic = [...synthetic].sort(compareDate);
   const sortedActual = [...actual].sort(compareDate);
   const firstActual = sortedActual.find((row) => Number.isFinite(row.close));
@@ -198,7 +202,7 @@ export function scaleToActualAtStart(synthetic: MarketRow[], actual: MarketRow[]
 
   const scale = firstActual.close / syntheticAnchor.close;
   return sortedSynthetic
-    .filter((row) => row.date >= firstActual.date)
+    .filter((row) => includeBeforeActualStart || row.date >= firstActual.date)
     .map((row) => ({
       date: row.date,
       close: row.close * scale,
