@@ -57,34 +57,48 @@ function lineChart(
   options: { actualLabel: string; syntheticLabel: string; valueFormatter?: (value: number) => string }
 ) {
   const width = 820;
-  const height = 280;
-  const padding = { top: 18, right: 30, bottom: 32, left: 58 };
+  const height = 304;
+  const padding = { top: 48, right: 30, bottom: 34, left: 58 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
   const values = rows.flatMap((row) => [row.actual, row.synthetic]);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const rawMin = Math.min(...values);
+  const rawMax = Math.max(...values);
+  const domainPadding = Math.max((rawMax - rawMin) * 0.06, 0.000001);
+  const min = rawMin - domainPadding;
+  const max = rawMax + domainPadding;
   const x = (index: number) => padding.left + (index / Math.max(rows.length - 1, 1)) * plotWidth;
   const y = (value: number) =>
     padding.top + (1 - (value - min) / Math.max(max - min, 0.000001)) * plotHeight;
   const path = (key: 'actual' | 'synthetic') =>
     rows.map((row, index) => `${index === 0 ? 'M' : 'L'} ${x(index).toFixed(1)} ${y(row[key]).toFixed(1)}`).join(' ');
   const formatValue = options.valueFormatter ?? ((value: number) => number.format(value));
-  const ticks = [min, (min + max) / 2, max];
+  const ticks = [rawMin, (rawMin + rawMax) / 2, rawMax];
+  const actualColor = '#1f6fb2';
+  const syntheticColor = '#a64d00';
 
   return `
     <figure class="comparison-chart">
       <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${options.actualLabel} compared with ${options.syntheticLabel}">
+        <rect class="plot-background" x="${padding.left}" y="${padding.top}" width="${plotWidth}" height="${plotHeight}" rx="4"></rect>
         ${ticks
           .map(
             (tick) => `
-              <line class="grid-line" x1="${padding.left}" y1="${y(tick)}" x2="${width - padding.right}" y2="${y(tick)}"></line>
+              <line class="grid-line" x1="${padding.left}" y1="${y(tick)}" x2="${width - padding.right}" y2="${y(tick)}" stroke="#dce3ea" stroke-width="1"></line>
               <text class="axis-label" x="${padding.left - 8}" y="${y(tick) + 4}" text-anchor="end">${formatValue(tick)}</text>
             `
           )
           .join('')}
-        <path class="actual-line" d="${path('actual')}"></path>
-        <path class="synthetic-line" d="${path('synthetic')}"></path>
+        <line class="axis-line" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}"></line>
+        <line class="axis-line" x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}"></line>
+        <path class="actual-line" d="${path('actual')}" fill="none" stroke="${actualColor}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
+        <path class="synthetic-line" d="${path('synthetic')}" fill="none" stroke="${syntheticColor}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
+        <g class="chart-legend" transform="translate(${padding.left}, 18)">
+          <line x1="0" y1="7" x2="26" y2="7" stroke="${actualColor}" stroke-width="3" stroke-linecap="round"></line>
+          <text x="34" y="11">${options.actualLabel}</text>
+          <line x1="260" y1="7" x2="286" y2="7" stroke="${syntheticColor}" stroke-width="3" stroke-linecap="round"></line>
+          <text x="294" y="11">${options.syntheticLabel}</text>
+        </g>
         <text class="axis-label" x="${padding.left}" y="${height - 8}">${rows[0]?.date ?? ''}</text>
         <text class="axis-label" x="${width - padding.right}" y="${height - 8}" text-anchor="end">${rows.at(-1)?.date ?? ''}</text>
       </svg>

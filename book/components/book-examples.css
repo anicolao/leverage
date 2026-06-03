@@ -103,6 +103,11 @@ th {
   stroke-width: 2.2;
 }
 
+.plot-background {
+  fill: #fbfcfd;
+  stroke: #edf1f4;
+}
+
 .actual-line {
   stroke: #1f6fb2;
 }
@@ -116,9 +121,20 @@ th {
   stroke-width: 1;
 }
 
+.axis-line {
+  stroke: #b8c4cf;
+  stroke-width: 1;
+}
+
 .axis-label {
   fill: #506273;
   font-size: 12px;
+}
+
+.chart-legend text {
+  fill: #263748;
+  font-size: 13px;
+  font-weight: 650;
 }
 
 .comparison-chart figcaption {
