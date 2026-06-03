@@ -8,7 +8,7 @@ Start with the first chapter:
 - [How To Read The Interface](book/chapters/02-how-to-read-the-interface.html)
 - [The Synthetic XAW Proxy](book/chapters/03-synthetic-xaw-proxy.html)
 - [Price, Distributions, and Total Return](book/chapters/04-price-distributions-total-return.html)
-- [Prime, Margin, and HELOC Interest](book/chapters/prime-margin-heloc-interest.html)
+- [Prime, Margin, and HELOC Interest](book/chapters/05-prime-and-margin-rates.html)
 
 The pilot demonstrates the LiTScript workflow: prose expands production
 TypeScript regions, the interactive calculator imports production simulator

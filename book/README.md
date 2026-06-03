@@ -12,7 +12,7 @@ same helpers that the app uses.
 - Chapter: `book/chapters/02-how-to-read-the-interface.md`
 - Chapter: `book/chapters/03-synthetic-xaw-proxy.md`
 - Chapter: `book/chapters/04-price-distributions-total-return.md`
-- Chapter: `book/chapters/prime-margin-heloc-interest.md`
+- Chapter: `book/chapters/05-prime-and-margin-rates.md`
 - Production region: `margin-rate-from-prime` in
   `src/lib/backtest/dcaSimulator.ts`
 - Production region: `default-dca-scenario-parameters` in
