@@ -10,6 +10,8 @@ import {
 import { fetchCanadianPrimeRates } from '$lib/backtest/bankOfCanada';
 import { fetchYahooHistory } from '$lib/backtest/yahoo';
 
+export const prerender = true;
+
 export async function load() {
   const simulationStart = '2006-01-01';
   const xawStart = '2015-02-10';

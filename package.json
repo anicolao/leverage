@@ -11,10 +11,11 @@
     "test": "vitest run",
     "book:dev": "lits --serve",
     "book:build": "lits",
-    "book:check": "npm run check && npm test && npm run book:build"
+    "book:check": "npm run check && npm test && npm run book:build",
+    "pages:build": "npm run build && npm run book:build && node scripts/prepare-pages.mjs"
   },
   "devDependencies": {
-    "@sveltejs/adapter-auto": "^6.1.0",
+    "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.49.0",
     "@sveltejs/vite-plugin-svelte": "^6.2.1",
     "@types/node": "^24.10.2",
