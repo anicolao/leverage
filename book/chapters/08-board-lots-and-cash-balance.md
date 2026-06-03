@@ -1,30 +1,36 @@
+---
+{
+  "modules": ["./book/components/BookExamples"]
+}
+---
+
 # Board Lots and Cash Balance
 
-The simulator rounds share holdings to 100-share board lots when it rebalances
-to the target margin leverage.
+## What
 
-## Rounding Rule
+A board lot is a standard trading block. This simulator rounds rebalanced share
+holdings to 100-share board lots.
 
-The desired share count is derived from the desired share value and current
-proxy price. The actual share count is rounded to the nearest board lot.
+## Why
+
+Rounding matters because the desired leverage target usually produces a
+fractional or non-board-lot share count. If the model ignored rounding, it would
+make trades that the chosen rule does not allow.
+
+## How
+
+The simulator computes desired shares from desired share value, then rounds to
+the nearest board lot. The difference becomes rounding cash.
 
 <<r:margin-leverage-target>>
 
-`roundingCashBalance` records the difference between the desired share value and
-the rounded share value. It can be negative when rounding buys slightly more
-than the desired share value, or positive when rounding buys less.
+Why cash can be negative: if rounding buys slightly more than the exact target,
+the rounded share value is larger than desired share value. The cash field
+records that difference so total assets still reconcile.
 
-## Distribution Cash
-
-Distribution cash is tracked separately while it is available for HELOC
-interest. The reported `cashBalance` combines leftover distribution cash and
-rounding cash.
-
-A negative cash balance in this simulator is not a broker cash loan model. It
-is an accounting trace of board-lot rounding around the target share value.
+<leverage-board-lot-demo></leverage-board-lot-demo>
 
 ## Validation Artifact
 
-`src/lib/backtest/dcaSimulator.test.ts` validates that rebalancing trades are
-rounded to the nearest 100-share board lot and that rounding cash does not
-accumulate below half a board lot in the negative direction.
+`src/lib/backtest/dcaSimulator.test.ts` validates board-lot rounding and checks
+that negative rounding cash does not accumulate beyond half a board lot.

@@ -1,37 +1,44 @@
+---
+{
+  "modules": ["./book/components/BookExamples"]
+}
+---
+
 # Drawdown to Margin Call
 
-The drawdown fields answer: how far can share value fall before the margin
-account reaches the maintenance-margin threshold used by the simulator?
+## What
 
-## Maintenance Requirement
+A drawdown is a percentage decline from the current share value. A margin call
+is the point where the brokerage can demand more equity or sell shares because
+the account no longer satisfies maintenance margin.
 
-The current simulator uses a maintenance margin requirement of `30%`. That
-means margin debt cannot exceed `70%` of account assets under the simplified
-formula.
+## Why
 
-## Closed Form
+The investor wants to avoid a margin call because it can force selling after a
+large price drop. Forced selling at low prices can turn a temporary drawdown
+into a permanent loss of share count.
 
-The helper computes the share-value decline that would make account assets just
-large enough for the current margin debt:
+## How
+
+The simulator uses a simplified maintenance margin requirement of `30%`. That
+means the account must keep enough assets so margin debt is no more than `70%`
+of account assets.
 
 <<r:drawdown-to-maintenance-margin-call>>
 
-Cash balance reduces the share value required to satisfy the maintenance
-formula. For collapse drawdown, the simulator passes
-`cashBalance + remainingHelocCapacity`, modelling the idea that remaining HELOC
-capacity could temporarily support the brokerage account.
+Why cash is included: cash supports account assets, so it reduces the share
+value needed to satisfy the maintenance formula.
 
-## Interpretation
+<drawdown-demo></drawdown-demo>
 
-`marginCallDrawdown` is not a broker guarantee. It is the simulator's simplified
-distance-to-threshold calculation. Real broker rules may vary by security,
-currency, concentration, account type, and intraday policy.
+## Collapse Drawdown
 
-`collapseDrawdown` is even more model-dependent because it includes remaining
-HELOC capacity. It is best read as a stress indicator, not as a lender promise.
+Collapse drawdown uses the same formula but adds remaining HELOC capacity to
+cash. Why: it shows a broader stress threshold if unused HELOC capacity can
+temporarily support the margin account. This is a model assumption, not a lender
+guarantee.
 
 ## Validation Artifact
 
-`src/lib/backtest/dcaSimulator.test.ts` validates drawdown values with a direct
-fixture that has exact expected `marginCallDrawdown` and `collapseDrawdown`
-values.
+`src/lib/backtest/dcaSimulator.test.ts` validates exact expected
+`marginCallDrawdown` and `collapseDrawdown` values in a direct fixture.

@@ -42,6 +42,7 @@ same helpers that the app uses.
   `equity-outcome-histogram`, `equity-outcome-buckets`,
   `capitalization-policy`, and `drawdown-to-maintenance-margin-call`
 - Interactive component: `book/components/InterestAccrualDemo.ts`
+- Interactive examples: `book/components/BookExamples.ts`
 - Regression fixtures: `book/examples/interest-fixture.ts` and
   `book/examples/default-scenario.ts`
 - Interface inventory: `book/examples/interface-inventory.ts`

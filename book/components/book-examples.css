@@ -1,0 +1,83 @@
+:host {
+  display: block;
+}
+
+.demo {
+  border: 1px solid #c8d2dc;
+  border-radius: 8px;
+  color: #17212b;
+  font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  max-width: 920px;
+  padding: 16px;
+}
+
+.demo h3 {
+  font-size: 16px;
+  margin: 0 0 10px;
+}
+
+.controls,
+.metrics {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.controls {
+  margin-bottom: 14px;
+}
+
+label {
+  display: grid;
+  gap: 5px;
+  font-weight: 650;
+}
+
+input,
+select {
+  border: 1px solid #aab8c5;
+  border-radius: 6px;
+  font: inherit;
+  padding: 7px 9px;
+}
+
+.metric {
+  background: #f3f6f8;
+  border-radius: 6px;
+  padding: 9px;
+}
+
+.metric span {
+  color: #506273;
+  display: block;
+  font-size: 12px;
+  margin-bottom: 3px;
+}
+
+.metric strong {
+  display: block;
+  font-size: 17px;
+}
+
+table {
+  border-collapse: collapse;
+  margin-top: 12px;
+  width: 100%;
+}
+
+th,
+td {
+  border-bottom: 1px solid #dce3ea;
+  padding: 7px 8px;
+  text-align: left;
+}
+
+th {
+  color: #506273;
+  font-size: 12px;
+}
+
+.note {
+  color: #506273;
+  margin: 10px 0 0;
+}

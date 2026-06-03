@@ -1,41 +1,47 @@
+---
+{
+  "modules": ["./book/components/BookExamples"]
+}
+---
+
 # Debt, Equity, and Margin Leverage
 
-The leverage chapter answers: which debt is targeted by the broker margin
-control, and how does the simulator compute equity?
+## What
 
-## Margin Debt Versus Total Debt
+Margin debt is the broker loan inside the investment account. HELOC debt is a
+separate loan outside the brokerage account. Equity is assets minus debt.
 
-Margin leverage is broker margin debt divided by share value:
-`marginDebt / shareValue`.
+## Why
 
-HELOC debt is outside that target. HELOC debt still affects total debt and
-equity, but it does not directly determine the broker margin rebalance.
+The brokerage cares about the margin loan because that loan is secured by the
+shares in the account. If account equity is too low, the brokerage can trigger a
+margin call and sell shares. HELOC debt still matters to household solvency,
+but it does not directly determine the broker's margin-call threshold.
 
-## Target Share Value
+## How: Targeting Margin Leverage
 
-The target share value is derived from brokerage equity after contribution and
-the desired margin leverage:
+The leverage target is `marginDebt / shareValue`. The simulator uses that ratio
+to keep broker debt at the selected percentage of brokerage share value.
 
 <<r:margin-leverage-target>>
 
-If the target is 20%, brokerage equity must represent 80% of the desired share
-value. The simulator therefore divides brokerage equity by `1 - leverageTarget`
-to get desired share value, then sets desired margin debt to
-`desiredShareValue * leverageTarget`.
+Why HELOC debt is excluded from the target: HELOC debt is not broker debt inside
+the margin account, so it does not decide whether the broker liquidates the
+account.
 
-## Checkpoint Accounting
+<leverage-board-lot-demo></leverage-board-lot-demo>
 
-After trades and HELOC cap enforcement, the simulator records assets, debt, and
-equity:
+## How: Recording Equity
+
+After trades and HELOC cap checks, the simulator records assets, debt, and
+equity.
 
 <<r:checkpoint-row>>
 
-`totalAssets = shareValue + cashBalance`.
-`totalDebt = marginDebt + helocDebt`.
-`equity = totalAssets - totalDebt`.
+Why this accounting matters: a leveraged portfolio can have a large share value
+and still have weak or negative equity if debt is larger.
 
 ## Validation Artifact
 
 `src/lib/backtest/dcaSimulator.test.ts` validates margin debt targeting and
-checks that reported equity equals total assets less total debt in fixtures that
-include distributions and cash balance.
+checks that reported equity equals total assets less total debt.

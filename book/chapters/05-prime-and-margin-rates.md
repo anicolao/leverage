@@ -6,38 +6,37 @@
 
 # Prime, Margin, and HELOC Interest
 
-This pilot chapter covers the simulator's current interest-rate model. HELOC
-interest uses the fill-forward Canadian prime rate. Margin interest uses the
-same prime observation with a fixed discount of 95 basis points.
+## What
 
-The chapter answers one focused question: given a prime rate, what annual
-margin rate and daily simple interest does the simulator accrue?
+Prime is the Canadian prime lending rate series used by the simulator. HELOC
+interest uses prime directly. Margin interest uses prime less 95 basis points.
+A basis point is one hundredth of a percentage point, so 95 basis points is
+`0.95%`.
 
-## Production Code
+## Why
 
-The margin-rate conversion is production code from
-`src/lib/backtest/dcaSimulator.ts`.
+Borrowing cost is one of the main risks in a leveraged strategy. If interest
+cost rises while share prices fall, the investor can be forced to sell shares
+at exactly the wrong time.
+
+The margin-rate discount exists because the current app models broker margin as
+slightly cheaper than HELOC borrowing. The discount is an assumption, not a
+universal brokerage rule.
+
+## How
+
+The production helper converts prime to the annual margin rate used by the
+simulator.
 
 <<r:margin-rate-from-prime>>
 
-The helper clamps the result at zero, so a very low prime rate cannot produce a
-negative margin interest rate.
-
-## Interactive Example
-
-The calculator below imports the same `marginRateFromPrime` helper. HELOC
-interest is shown beside margin interest so the discount is visible.
+The `Math.max` clamp matters because the model should not create a negative
+interest rate if prime is lower than the discount.
 
 <interest-accrual-demo></interest-accrual-demo>
 
 ## Validation Artifact
 
-The regression fixture in `book/examples/interest-fixture.ts` fixes the pilot's
-baseline example:
-
-- Prime rate: `4.45%`
-- Margin discount: `0.95%`
-- Expected margin rate: `3.50%`
-
-`book/examples/examples.test.ts` and `src/lib/backtest/dcaSimulator.test.ts`
-both assert that this mapping remains true.
+`book/examples/interest-fixture.ts` fixes the baseline example: prime `4.45%`
+maps to margin `3.50%`. `book/examples/examples.test.ts` and
+`src/lib/backtest/dcaSimulator.test.ts` both assert that mapping.

@@ -1,31 +1,36 @@
+---
+{
+  "modules": ["./book/components/BookExamples"]
+}
+---
+
 # Contributions and Investment Target
 
-The contribution controls answer: how much HELOC-funded capital enters the
-brokerage account, and when does that stop?
+## What
 
-## Monthly Contribution Rule
+A contribution is a new HELOC-funded investment amount. The investment target
+is the maximum cumulative contribution, not the target portfolio value.
 
-At each monthly checkpoint, the simulator contributes the smaller of the
-configured monthly amount and the remaining investment target.
+## Why
+
+The distinction matters because borrowed contributions are under the investor's
+control, while final portfolio value depends on market returns, interest,
+rounding, forced sales, and distributions.
+
+## How
+
+At each monthly checkpoint, the simulator contributes the smaller of the monthly
+amount and the remaining target.
 
 <<r:monthly-contribution-target>>
 
-The contribution is immediately added to cumulative contribution and HELOC
-debt. This models a HELOC draw used to fund the investment account.
+Why the `Math.min` is there: the final contribution may be smaller than the
+monthly amount so cumulative contributions do not overshoot the target.
 
-## Interpretation
-
-`monthlyContribution` is a monthly attempted draw, in Canadian dollars.
-`investmentTarget` is the maximum cumulative contribution, in Canadian dollars.
-Once cumulative contribution reaches the target, future monthly contributions
-are zero.
-
-A common interpretation trap is to read the target as a portfolio value target.
-It is not. Price movement, margin debt, forced sales, and distribution cash can
-make portfolio assets very different from cumulative contribution.
+<contribution-demo></contribution-demo>
 
 ## Validation Artifact
 
-`src/lib/backtest/dcaSimulator.test.ts` validates that the first checkpoint
-draws the configured monthly contribution and that quarterly or annual table
-summaries do not change the monthly contribution cadence.
+`src/lib/backtest/dcaSimulator.test.ts` validates that monthly contributions
+follow the cadence and that table summaries do not change the contribution
+schedule.

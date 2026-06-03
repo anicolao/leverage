@@ -1,55 +1,55 @@
+---
+{
+  "modules": ["./book/components/BookExamples"]
+}
+---
+
 # Price, Distributions, and Total Return
 
-The app separates three related views of the same market history: raw price,
-cash distributions, and total return. Keeping them separate matters because the
-simulator buys and sells shares using price, but interest handling and tax
-tracking also need distribution cash.
+## What
 
-## Price
+The app separates raw price, distribution cash, and total return. Price is the
+daily close. A distribution is cash paid per share. Total return is growth after
+including distributions as if they were reinvested.
 
-Price is the daily close with distributions excluded. It answers: what share
-price does the simulator use when it buys, sells, values holdings, and computes
-margin leverage?
+## Why
 
-The synthetic price proxy is not a total-return index. It is an indexed CAD
-component-price basket scaled into XAW share-price space at actual XAW
-inception.
+The simulator needs all three because they answer different questions. Price
+tells the simulator how many shares can be bought or sold. Distributions tell
+the simulator how much cash is available for HELOC interest. Total return tells
+the reader whether the synthetic proxy tracks actual XAW when distributions are
+included.
 
-## Distributions
+## How: Distributions
 
-Distributions are cash paid per share. They answer: how much cash does the
-portfolio receive before paying HELOC interest?
-
-For the distribution chart, daily distributions are aggregated by calendar year:
+For the distribution chart, daily cash distributions are aggregated by calendar
+year.
 
 <<r:annual-distributions>>
 
-The known limitation is that synthetic distributions are less precise than
-synthetic price movement. The proxy estimates component distributions after CAD
-conversion and calibrated distribution drag; it does not recreate the exact
-future XAW fund distribution policy before XAW existed.
+Why this is yearly: annual bars make the cash pattern readable. Daily
+distribution rows are sparse and hard to compare visually.
 
-## Total Return
+## How: Total Return
 
-Total return answers: how would a starting amount have grown if distributions
-were reinvested?
+The total-return index combines price movement and distribution yield.
 
 <<r:total-return-index>>
 
-The daily return combines price movement and cash distribution yield:
-`row.close / previous.close - 1 + row.dividends / previous.close`.
+Why this formula: if price rises from `$100` to `$110` and pays `$5` of cash,
+the investor's economic return is not just `10%`; it is `15%` before costs.
 
-The total-return chart is useful for validating the synthetic proxy against
-actual XAW over their overlap. The monthly simulator does not buy the
-total-return index; it uses the price-like series and receives distributions as
-cash.
+<return-distribution-demo></return-distribution-demo>
+
+## Limitation
+
+Synthetic distributions are less precise than synthetic price movement because
+ETF distribution policy is fund-specific. The proxy estimates component
+distributions after CAD conversion and calibrated drag; it cannot recreate
+future XAW distribution policy before XAW existed.
 
 ## Validation Artifact
 
-`src/lib/backtest/xaw.test.ts` validates this chapter's mechanics with focused
-examples:
-
-- `totalReturnIndex` includes both price movement and distributions.
-- `annualDistributions` aggregates daily cash distributions by calendar year.
-- Synthetic and actual comparison fixtures continue to agree with the Python
-  implementation used as a parity check.
+`src/lib/backtest/xaw.test.ts` validates that `totalReturnIndex` includes both
+price movement and distributions, and that `annualDistributions` aggregates
+daily cash distributions by calendar year.

@@ -1,84 +1,90 @@
 # How To Read The Interface
 
-The app is organized as a validation section followed by a simulator section.
-Read it from top to bottom when you want to understand the current model, and
-read it from the controls outward when you want to compare scenarios.
+The interface is organized as a question-and-answer path. Each section asks one
+question about the strategy, because leverage can look attractive in averages
+while hiding the path-dependent moments where debt becomes dangerous.
 
 ## Validation Summary
 
-The opening tiles answer: how closely does the synthetic XAW proxy track real
-`XAW.TO` over the overlap period?
+What: the first tiles compare the synthetic XAW proxy against real `XAW.TO`
+over the period where both exist.
 
-Overlap is the count of comparable actual and synthetic daily rows.
-Correlation describes directional agreement. Mean absolute error describes the
-average absolute percentage difference. Distribution drag is the calibrated
-synthetic distribution adjustment used by the current data builder.
+Why: the simulator uses synthetic pre-inception history, so the reader needs
+evidence that the proxy behaves reasonably once actual XAW data is available.
+
+How: overlap counts comparable days, correlation measures directional
+agreement, mean absolute error measures typical percentage difference, and
+distribution drag shows the calibrated distribution adjustment.
 
 ## Comparison Charts
 
-The chart tabs answer: where does the proxy agree or disagree with actual XAW
-price, return, and distributions?
+What: the chart tabs show total return, price action, and annual distributions.
 
-Total return shows growth of `$100` with distributions included. Price action
-shows close prices with distributions excluded. Dividends shows annual cash
-distributions in XAW share-price space. The data table below the chart is the
-same comparison series rendered as rows.
+Why: the simulator uses price to buy and sell shares, but it also needs
+distribution cash for interest handling. A single chart would hide that
+difference.
+
+How: total return shows growth with distributions reinvested, price action
+shows close prices without distributions, and dividends shows annual cash
+distributions per share.
 
 ## Simulation Controls
 
-The simulator controls answer: which assumptions define the monthly borrowing,
-investing, interest, and outcome horizon?
+What: the controls define the scenario: start date, investment target, HELOC
+cap, monthly investment, leverage target, capitalization policy, table interval,
+and outcome horizon.
 
-Start date selects the first simulation date. Investment target is the maximum
-cumulative HELOC-funded contribution. Monthly investment is the contribution
-attempted at each monthly checkpoint until the target is reached. Max HELOC debt
-is the hard HELOC cap. Leverage target is broker margin debt as a percentage of
-brokerage share value. Capitalize interest selects the policy for margin
-interest that is not paid by selling shares. Table interval changes only row
-presentation. Outcome horizon changes the fixed horizon used by the histogram.
+Why: leveraged outcomes depend heavily on assumptions. A small change to debt,
+interest policy, or start date can change whether the strategy survives a
+drawdown.
+
+How: changing a control updates the production simulator input and recomputes
+the rows used by the summary tiles, chart, table, and histogram.
 
 ## Portfolio Statistics
 
-The summary tiles answer: what is the terminal portfolio state under the
-selected scenario?
+What: the summary tiles show the terminal state and totals for the selected
+scenario.
 
-Final assets, cash balance, total debt, equity, margin leverage, HELOC
-capacity, drawdown metrics, total interest, distributions, tax deduction, and
-latest rates are all derived from the monthly simulation rows. They summarize
-the last row or totals across rows; they do not run a separate calculation.
+Why: the last row is where the investor sees whether the strategy ended with
+positive equity, remaining HELOC capacity, manageable leverage, and tolerable
+interest burden.
+
+How: ending-state fields come from the last `DcaSimulationRow`; totals such as
+interest and distributions are sums across all rows.
 
 ## Portfolio Path Chart
 
-The portfolio path chart answers: how do assets, debt, equity, and proxy price
-evolve through the simulation?
+What: the path chart shows assets, debt, equity, and proxy price through time.
 
-The left axis is money: assets, total debt, and equity. The right axis is proxy
-price. Hovering the chart shows the monthly checkpoint row for the selected
-date.
+Why: leverage risk is path-dependent. The final result may look fine even if
+the account came close to forced liquidation along the way.
+
+How: the chart reads the same monthly checkpoint rows as the table and shows a
+hover callout for the selected row.
 
 ## Checkpoint Table
 
-The checkpoint table answers: what exact state did the simulator record after
-each checkpoint?
+What: the table shows the exact recorded monthly state.
 
-Each row is a `DcaSimulationRow`. Monthly, quarterly, and annual intervals are
-presentation summaries. The simulator still contributes and rebalances at the
-first trading date of each month.
+Why: charts help with pattern recognition, but audits need exact numbers.
+
+How: monthly rows are raw simulator checkpoints. Quarterly and annual views
+summarize presentation only; they do not change the investment cadence.
 
 ## Outcome Histogram
 
-The outcome histogram answers: how do fixed-horizon final equity outcomes vary
-across sampled historical start dates?
+What: the histogram shows fixed-horizon final equity across nearby historical
+start dates.
 
-For the selected start date, the app samples nearby historical starts, filters
-out starts that do not have a complete horizon, runs the same simulator for
-each remaining start, and buckets final equity cumulatively. A bucket labelled
-`>= $100,000` means the percentage of sampled starts whose final equity was at
-least `$100,000`.
+Why: a leveraged strategy can be highly sensitive to when it starts. The
+histogram makes start-date luck visible.
+
+How: the app samples start dates near the selected date, filters out starts
+without a complete horizon, runs the same simulator for each start, and reports
+cumulative final-equity buckets.
 
 ## Validation Artifact
 
-`book/examples/interface-inventory.ts` is the chapter inventory. It names each
-interface section, the question it answers, and the test or fixture that keeps
-the section grounded. `book/examples/examples.test.ts` verifies that every
-listed section has a question and validation artifact.
+`book/examples/interface-inventory.ts` names each interface section, the
+question it answers, and the fixture or test that keeps the section grounded.

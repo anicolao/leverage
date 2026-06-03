@@ -1,9 +1,18 @@
 # Reading Bad Outcomes
 
-Bad outcomes in this simulator usually come from the interaction of falling
-prices, high debt, interest accrual, limited HELOC capacity, and forced sales.
+## What
 
-## Negative Equity
+A bad outcome is not only a low final return. In a leveraged strategy, bad
+outcomes include negative equity, forced sales, exhausted HELOC capacity, and
+near-margin-call conditions.
+
+## Why
+
+Those states matter because they can remove the investor's ability to hold
+through a downturn. The strategy can fail before the market recovers if debt
+pressure forces sales at low prices.
+
+## How: Negative Equity
 
 Negative equity means total debt exceeds tracked assets:
 
@@ -11,48 +20,42 @@ Negative equity means total debt exceeds tracked assets:
 equity = totalAssets - totalDebt
 ```
 
-It can happen even when the portfolio still owns shares. It is a solvency
-measure in the simulator, not a declaration of bankruptcy or a lender action.
+Why this matters: the investor may still own shares, but debt holders have a
+larger claim than the assets are currently worth.
 
-## Forced Sales
+## How: Forced Sales
 
-Forced sales appear in several columns:
+The simulator records three forced-sale paths:
 
 - `interestPaidBySale`: shares sold to pay margin interest.
 - `helocInterestPaidBySale`: shares sold to pay HELOC interest after
   distributions are exhausted.
 - `helocLimitPaidBySale`: shares sold to bring HELOC debt back under the cap.
 
-Forced sales can reduce future recovery because fewer shares remain for a later
-price rebound.
+Why this matters: forced sales reduce share count, so the portfolio has fewer
+shares available for a later rebound.
 
-## HELOC Exhaustion
+## How: HELOC Exhaustion
 
-`remainingHelocCapacity` falling to zero means the configured HELOC cap is
-fully used. Once that happens, the model has less ability to absorb capitalized
-interest, contributions, or cap pressure.
+`remainingHelocCapacity` falling to zero means the configured HELOC cap is fully
+used. Why this matters: the model has less room to absorb contributions,
+capitalized interest, or support for the margin account.
 
-## Margin-Call Proximity
+## How: Margin-Call Proximity
 
 `marginCallDrawdown` near zero means a small share-price decline would reach the
-simplified maintenance-margin threshold. `collapseDrawdown` includes remaining
-HELOC capacity and should be read as a broader stress indicator.
+simplified maintenance-margin threshold. Why this matters: a tiny additional
+drop could force action when prices are already low.
 
-## Stress Windows To Inspect
+## Stress Windows To Critique
 
-Useful critique windows in the current data include:
-
-- 2008-2009 for a long crisis drawdown.
-- March 2020 for a sharp crash and rebound.
-- 2022 for falling global equities combined with rising rates.
-- Recent high-rate history for interest burden after prime-rate increases.
-
-The simulator does not claim these windows forecast future losses. They are
-historical stress examples for understanding the implemented mechanics.
+Useful windows in the current data include 2008-2009, March 2020, 2022, and
+recent high-rate history. Why these windows matter: they combine falling prices,
+fast drawdowns, or high borrowing costs, which are the conditions where this
+strategy is most fragile.
 
 ## Validation Artifact
 
-The bad-outcome fields are validated indirectly by the same fixtures in
-`src/lib/backtest/dcaSimulator.test.ts`: HELOC cap enforcement, interest sales,
-distribution-first HELOC interest payment, drawdown calculation, and equity
-accounting.
+The bad-outcome fields are validated indirectly by the simulator fixtures for
+HELOC cap enforcement, interest sales, distribution-first HELOC interest
+payment, drawdown calculation, and equity accounting.

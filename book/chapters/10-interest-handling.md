@@ -1,45 +1,53 @@
+---
+{
+  "modules": ["./book/components/BookExamples"]
+}
+---
+
 # Interest Handling
 
-The simulator tracks margin interest and HELOC interest separately because they
-are paid differently.
+## What
 
-## Accrual
+Interest is the cost of borrowing. The simulator tracks margin interest and
+HELOC interest separately because they are paid through different rules.
 
-Margin interest accrues on margin debt at prime less 95 basis points. HELOC
-interest accrues on HELOC debt at prime.
+## Why
+
+Interest can force share sales during downturns. That matters because selling
+shares while prices are low reduces the number of shares available for a later
+recovery.
+
+## How: Accrual
+
+Margin interest accrues on margin debt. HELOC interest accrues on HELOC debt.
 
 <<r:monthly-interest-accrual>>
 
-## Margin Interest
+## How: Capitalization Policy
 
-At each monthly checkpoint, margin interest follows the selected capitalization
-policy:
+Capitalization means adding unpaid interest to debt instead of paying it in
+cash. The current policy applies to margin interest.
 
 <<r:capitalization-policy>>
 
-The policies are:
+Why policies exist: different investors may prefer to preserve shares during
+drawdowns or avoid growing HELOC debt. The policy exposes that tradeoff instead
+of hiding it.
 
-- `always`: add margin interest to HELOC debt.
-- `never`: sell shares to pay margin interest when shares are available.
-- `negativeEquity`: capitalize only when equity before interest is negative.
-- `movingAverage`: capitalize when current price is at or below the 120-day
-  moving average.
+## How: Payment Mechanics
 
-The payment and capitalization mechanics are:
+The simulator handles margin interest first, then HELOC interest. HELOC
+interest uses distribution cash before selling shares.
 
 <<r:monthly-interest-handling>>
 
-If shares are insufficient to pay all margin interest under a non-capitalizing
-policy, the remaining margin interest is capitalized to HELOC debt.
+Why distributions are used first: cash can pay interest without reducing share
+count, which avoids selling assets during market stress.
 
-## HELOC Interest
-
-HELOC interest is paid from distribution cash first. Any remaining HELOC
-interest is paid by selling shares. HELOC interest is not capitalized by the
-current simulator.
+<interest-policy-demo></interest-policy-demo>
 
 ## Validation Artifact
 
 `src/lib/backtest/dcaSimulator.test.ts` validates all four capitalization
-policies, the prime-minus-95-basis-points margin rate, and the rule that
-distributions are used before share sales to pay HELOC interest.
+policies, the prime-minus-95-basis-points margin rate, and distribution-first
+HELOC interest payment.

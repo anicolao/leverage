@@ -1,8 +1,24 @@
+---
+{
+  "modules": ["./book/components/BookExamples"]
+}
+---
+
 # Tax Deduction Column
 
-The tax deduction column is a tracking field, not a full tax engine.
+## What
 
-## Current Formula
+The tax deduction column is a simple tracking field. It is not a tax return and
+not a full tax engine.
+
+## Why
+
+Interest and distributions both matter to after-tax interpretation, but the
+current Svelte simulator does not model full Canadian tax filing rules. The
+column gives a narrow net-interest indicator without pretending to solve all
+tax questions.
+
+## How
 
 At each monthly checkpoint, the simulator records:
 
@@ -10,20 +26,16 @@ At each monthly checkpoint, the simulator records:
 taxDeduction = interestOwing - distributionsPaid
 ```
 
-`interestOwing` is margin interest plus HELOC interest. `distributionsPaid` is
-the accumulated distribution cash for that checkpoint.
+Why distributions are subtracted: the current tracking column treats
+distribution cash as offsetting the interest burden for that checkpoint.
 
-The value can be negative when distributions exceed interest for the checkpoint.
-That does not mean the investor receives a negative tax bill. It only means the
-tracking column's simple net-interest measure is negative for that row.
+<tax-deduction-demo></tax-deduction-demo>
 
-## What It Does Not Model
+## Limits
 
 The column does not model marginal tax brackets, eligible dividend gross-up,
 foreign income treatment, capital gains, superficial loss rules, alternative
-minimum tax, Ontario credits, or filing mechanics. The Python scaffold has a
-separate table-driven tax-engine direction, but the current Svelte simulator
-does not use that engine.
+minimum tax, Ontario credits, or filing mechanics.
 
 ## Validation Artifact
 

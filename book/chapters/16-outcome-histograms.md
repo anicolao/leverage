@@ -1,46 +1,55 @@
+---
+{
+  "modules": ["./book/components/BookExamples"]
+}
+---
+
 # Outcome Histograms
 
-The outcome histogram answers: how sensitive are fixed-horizon final equity
-outcomes to nearby historical start dates?
+## What
 
-## Start-Date Window
+The outcome histogram shows final equity across sampled historical start dates
+for a fixed horizon.
+
+## Why
+
+Start-date luck matters in leveraged investing. Two investors can use the same
+rules and get different outcomes if one begins before a crisis and the other
+begins after it.
+
+## How: Start Dates
 
 The app samples a centered window of historical start dates around the selected
-start date:
+start date.
 
 <<r:equity-outcome-start-dates>>
 
-The window clamps to the beginning or end of available data when the selected
-date is near an edge.
+Why the window clamps: near the beginning or end of the data, there are not
+enough dates on both sides of the selected start.
 
-## Complete Horizons
-
-The histogram excludes sampled starts that do not have enough data to complete
-the selected horizon. A 10-year horizon therefore ignores starts near the end of
-the available market history.
-
-## Running Outcomes
+## How: Outcomes
 
 For each complete start date, the simulator reruns the same scenario and stores
-the final equity:
+final equity.
 
 <<r:equity-outcome-histogram>>
 
-The Svelte app performs this loop in chunks so the browser can update the
-progress meter while outcomes are being calculated.
+Why incomplete starts are excluded: a 10-year outcome should not be compared
+with a 3-year outcome just because the data ended.
 
-## Cumulative Buckets
+## How: Buckets
 
-Histogram buckets are cumulative lower-bound buckets:
+Buckets are cumulative lower-bound buckets.
 
 <<r:equity-outcome-buckets>>
 
-A row labelled `>= $300,000` means the share of complete sampled starts whose
-final equity was at least `$300,000`. P25, P50, and P75 markers are assigned to
-the bucket containing the corresponding percentile outcome.
+Why cumulative buckets: they answer direct questions such as "what percentage
+of sampled starts ended with at least `$300,000` of equity?"
+
+<outcome-histogram-demo></outcome-histogram-demo>
 
 ## Validation Artifact
 
-`src/lib/backtest/dcaSimulator.test.ts` validates centered sample windows,
-beginning clamps, complete-horizon filtering, fixed horizon day counts,
-cumulative bucket monotonicity, and percentile placement.
+`src/lib/backtest/dcaSimulator.test.ts` validates centered windows, edge
+clamps, complete-horizon filtering, fixed horizon day counts, cumulative bucket
+monotonicity, and percentile placement.

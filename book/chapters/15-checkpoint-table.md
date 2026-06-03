@@ -1,33 +1,42 @@
+---
+{
+  "modules": ["./book/components/BookExamples"]
+}
+---
+
 # The Checkpoint Table
 
-The checkpoint table answers: what exactly did the simulator record after each
-monthly checkpoint?
+## What
 
-## Row Type
+The checkpoint table shows the exact state recorded after each monthly
+checkpoint.
 
-Every table row is a `DcaSimulationRow`. The row contains date, price, moving
-average, contribution, trade amount, share count, distributions, rates,
-interest, debt, assets, equity, leverage, HELOC capacity, and drawdown metrics.
+## Why
 
-The row is recorded after interest handling, contribution, margin rebalancing,
-HELOC cap enforcement, and account-value calculations:
+Charts show patterns, but tables support audit work. If a reader wants to know
+which month caused a forced sale or how much interest was capitalized, the table
+is the source.
+
+## How: Rows
+
+Each table row is a `DcaSimulationRow`, recorded after all monthly mechanics
+are applied.
 
 <<r:checkpoint-row>>
 
-## Table Intervals
+## How: Summaries
 
-The table can summarize rows monthly, quarterly, or annually. This changes only
-the presentation interval.
+The table can display monthly, quarterly, or annual intervals.
 
 <<r:summarize-simulation-rows>>
 
-For quarterly and annual summaries, the last row in the period supplies ending
-state fields such as shares, assets, debt, and equity. Flow fields such as
-contribution, trade amount, distributions, interest, sales, and capitalized
-interest are summed across the period.
+Why summaries keep the last state but sum flows: shares, assets, debt, and
+equity are ending states, while contributions, interest, distributions, and
+sales are period flows.
+
+<checkpoint-summary-demo></checkpoint-summary-demo>
 
 ## Validation Artifact
 
-`src/lib/backtest/dcaSimulator.test.ts` validates that quarterly and annual
-summaries preserve monthly contribution cadence and correctly sum monthly flow
-fields while using the period-ending checkpoint for state fields.
+`src/lib/backtest/dcaSimulator.test.ts` validates quarterly and annual
+summaries, including monthly contribution cadence and summed flow fields.
