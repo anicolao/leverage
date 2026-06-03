@@ -209,11 +209,12 @@ class StrategyConfigDemo extends HTMLElement {
         <h3>Configured single-ticker strategies</h3>
         <div class="table-wrap">
           ${table(
-            ['Strategy', 'Actual ticker', 'Actual data starts', 'Synthetic proxy mix', 'Notes'],
+            ['Strategy', 'Actual ticker', 'Actual data starts', 'MER', 'Synthetic proxy mix', 'Notes'],
             Object.entries(SINGLE_TICKER_STRATEGIES).map(([key, strategy]) => [
               key,
               strategy.ticker,
               strategy.inceptionDate,
+              percent.format(strategy.expenseRatio),
               formatWeights(strategy.syntheticWeights),
               strategy.notes
             ])

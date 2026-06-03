@@ -29,21 +29,30 @@ that the reader must understand how it is built and where it can be wrong.
 
 The production configuration defines the ETF choices, their actual Yahoo
 tickers, their inception dates, and the proxy weights used before actual data
-exists. The inception date matters because validation can only start once the
-real ETF has traded. The weights matter because they define the market exposure
-used in earlier history.
+exists. It also defines the expense ratio applied to the synthetic series. The
+inception date matters because validation can only start once the real ETF has
+traded. The weights matter because they define the market exposure used in
+earlier history.
 
 <<r:single-ticker-strategies>>
 
 <strategy-config-demo></strategy-config-demo>
 
 `SPY` represents US equities, `EFA` represents developed markets outside North
-America, `EEM` represents emerging markets, and `XIU.TO` represents Canadian
-large-cap equities. The US-listed proxy components trade in US dollars, so the
-simulator converts them to Canadian dollars with `CAD=X`. The Canadian-listed
-`XIU.TO` component already trades in Canadian dollars, so converting it again
-would overstate or understate Canadian exposure whenever the exchange rate
-moved.
+America, `IVV` represents US large-cap equities, `EEM` represents emerging
+markets, and `XIU.TO` represents Canadian large-cap equities. The US-listed
+proxy components trade in US dollars, so the simulator converts them to
+Canadian dollars with `CAD=X`. The Canadian-listed `XIU.TO` component already
+trades in Canadian dollars, so converting it again would overstate or
+understate Canadian exposure whenever the exchange rate moved.
+
+XWD needs its own proxy weights because MSCI World was not as US-heavy near
+XWD's 2009 overlap start as it is today. A static 65% US and 35% EAFE mix made
+the synthetic price run ahead of actual XWD, which made the validation chart
+look wrong even after total-return calibration. The configured XWD mix uses a
+historical-average developed-world blend instead, so the price series can track
+the actual fund before the simulator uses it for share purchases and margin
+calculations.
 
 ## Total Return Proxy
 

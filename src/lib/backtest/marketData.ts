@@ -12,6 +12,7 @@ export type ProxyWeightConfig = {
   displayName: string;
   ticker: string;
   inceptionDate: string;
+  expenseRatio: number;
   syntheticWeights: Record<string, number>;
   craTaxEligible: boolean;
   notes: string;
@@ -25,6 +26,7 @@ export const SINGLE_TICKER_STRATEGIES: Record<EtfStrategy, ProxyWeightConfig> = 
     displayName: 'iShares Core MSCI All Country World ex Canada Index ETF',
     ticker: 'XAW.TO',
     inceptionDate: '2015-02-10',
+    expenseRatio: 0.0022,
     syntheticWeights: { SPY: 0.55, EFA: 0.35, EEM: 0.1 },
     craTaxEligible: true,
     notes: 'Global exposure excluding Canada. Unhedged.'
@@ -33,6 +35,7 @@ export const SINGLE_TICKER_STRATEGIES: Record<EtfStrategy, ProxyWeightConfig> = 
     displayName: 'Vanguard Global All Cap ex Canada Index ETF',
     ticker: 'VXC.TO',
     inceptionDate: '2014-06-30',
+    expenseRatio: 0.0022,
     syntheticWeights: { SPY: 0.55, EFA: 0.35, EEM: 0.1 },
     craTaxEligible: true,
     notes: 'Direct competitor to XAW. Virtually identical global ex-Canada allocation.'
@@ -41,14 +44,17 @@ export const SINGLE_TICKER_STRATEGIES: Record<EtfStrategy, ProxyWeightConfig> = 
     displayName: 'iShares MSCI World Index ETF',
     ticker: 'XWD.TO',
     inceptionDate: '2009-06-18',
-    syntheticWeights: { SPY: 0.65, EFA: 0.35 },
+    expenseRatio: 0.0048,
+    syntheticWeights: { IVV: 0.5, EFA: 0.47, 'XIU.TO': 0.03 },
     craTaxEligible: true,
-    notes: 'Developed world index. Includes a negligible baseline allocation to Canada.'
+    notes:
+      'Developed world index. Uses a calibrated historical-average US, EAFE, and Canada mix because MSCI World became much more US-heavy after 2009.'
   },
   XEQT: {
     displayName: 'iShares Core Equity ETF Portfolio',
     ticker: 'XEQT.TO',
     inceptionDate: '2019-08-07',
+    expenseRatio: 0.0022,
     syntheticWeights: { SPY: 0.45, 'XIU.TO': 0.25, EFA: 0.25, EEM: 0.05 },
     craTaxEligible: true,
     notes: 'All-in-one asset allocation. Features a structural overweight to Canadian equities.'
@@ -57,6 +63,7 @@ export const SINGLE_TICKER_STRATEGIES: Record<EtfStrategy, ProxyWeightConfig> = 
     displayName: 'Vanguard All-Equity ETF Portfolio',
     ticker: 'VEQT.TO',
     inceptionDate: '2019-01-29',
+    expenseRatio: 0.0022,
     syntheticWeights: { SPY: 0.43, 'XIU.TO': 0.3, EFA: 0.2, EEM: 0.07 },
     craTaxEligible: true,
     notes: 'All-in-one asset allocation. Features a structural overweight to Canadian equities.'

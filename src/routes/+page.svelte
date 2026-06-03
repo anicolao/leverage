@@ -30,14 +30,15 @@
   type ValueKind = 'money';
   type XKind = 'date' | 'year';
 
+  const formatPercentLabel = (value: number) =>
+    new Intl.NumberFormat('en-CA', {
+      style: 'percent',
+      maximumFractionDigits: 2
+    }).format(value);
   const formatWeights = (weights: Record<string, number>) =>
     Object.entries(weights)
       .map(([symbol, weight]) => {
-        const percentage = new Intl.NumberFormat('en-CA', {
-          style: 'percent',
-          maximumFractionDigits: 2
-        }).format(weight);
-        return `${percentage} ${symbol}`;
+        return `${formatPercentLabel(weight)} ${symbol}`;
       })
       .join(', ');
 
@@ -50,7 +51,7 @@
     totalReturn: {
       label: 'Total Return',
       title: 'Total return',
-      description: `Growth of $100. Proxy weights: ${selectedWeightDescription}; US-listed components are converted to CAD with CAD=X, then reduced by 0.22% annual MER and the calibrated distribution-tax drag.`,
+      description: `Growth of $100. Proxy weights: ${selectedWeightDescription}; US-listed components are converted to CAD with CAD=X, then reduced by ${formatPercentLabel(selectedConfig.expenseRatio)} annual MER and the calibrated distribution-tax drag.`,
       actualLabel: `Real ${selectedConfig.ticker} total return`,
       syntheticLabel: 'Synthetic total return',
       valueKind: 'money' as const,

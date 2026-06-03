@@ -38,6 +38,15 @@ describe('synthetic XAW.TO', () => {
     }
   });
 
+  test('XWD uses its calibrated developed-market proxy and fund expense ratio', () => {
+    expect(SINGLE_TICKER_STRATEGIES.XWD.expenseRatio).toBeCloseTo(0.0048, 12);
+    expect(SINGLE_TICKER_STRATEGIES.XWD.syntheticWeights).toEqual({
+      IVV: 0.5,
+      EFA: 0.47,
+      'XIU.TO': 0.03
+    });
+  });
+
   test('TypeScript synthetic values match Python synthetic values', () => {
     const symbols = fixture.symbols as Record<string, MarketRow[]>;
     const typescriptRows = buildSyntheticXawProxy(

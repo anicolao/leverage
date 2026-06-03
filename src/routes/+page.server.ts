@@ -73,13 +73,14 @@ function buildStrategyResult(
     validationSymbolData,
     validationUsdCad,
     actualRows,
-    config.syntheticWeights
+    config.syntheticWeights,
+    config.expenseRatio
   );
   const synthetic = buildSyntheticXawProxy(
     validationSymbolData,
     validationUsdCad,
     config.syntheticWeights,
-    undefined,
+    config.expenseRatio,
     distributionTaxDrag
   );
   const actualTotalReturn = totalReturnIndex(actualRows);
@@ -87,14 +88,14 @@ function buildStrategyResult(
     validationSymbolData,
     validationUsdCad,
     config.syntheticWeights,
-    undefined,
+    config.expenseRatio,
     distributionTaxDrag
   );
   const simulationSyntheticPriceBase = buildSyntheticXawPriceProxy(
     symbolData,
     usdCadRows,
     config.syntheticWeights,
-    undefined,
+    config.expenseRatio,
     distributionTaxDrag
   );
   const scaledSyntheticPrice = scaleToActualAtStart(validationSyntheticPrice, actualRows);
