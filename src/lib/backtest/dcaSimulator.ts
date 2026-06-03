@@ -88,6 +88,7 @@ export function simulateDcaPortfolio(
   let previousDate = rows[0]?.date;
 
   for (const row of rows) {
+    //#region monthly-interest-accrual
     if (previousDate !== undefined) {
       const elapsedDays = daysBetween(previousDate, row.date);
       const primeRate = fillForwardPrimeRate(primeRates, previousDate);
@@ -99,6 +100,7 @@ export function simulateDcaPortfolio(
     const distribution = shares * row.dividends;
     pendingDistributions += distribution;
     distributionCashBalance += distribution;
+    //#endregion monthly-interest-accrual
 
     if (monthlyDates.has(row.date)) {
       const movingAverage120 = movingAverages.get(row.date) ?? row.close;
@@ -115,6 +117,7 @@ export function simulateDcaPortfolio(
       let helocLimitPaidBySale = 0;
       let interestCapitalized = 0;
 
+      //#region monthly-interest-handling
       if (marginInterestOwing > 0) {
         const shareValueBeforeInterest = shares * row.close;
         const equityBeforeInterest = shareValueBeforeInterest - marginDebt - helocDebt;
@@ -146,14 +149,18 @@ export function simulateDcaPortfolio(
         helocInterestPaidBySale = Math.min(remainingHelocInterest, shares * row.close);
         shares -= helocInterestPaidBySale / row.close;
       }
+      //#endregion monthly-interest-handling
 
+      //#region monthly-contribution-target
       const contribution = Math.min(
         input.monthlyContribution,
         Math.max(0, input.investmentTarget - cumulativeContribution)
       );
       cumulativeContribution += contribution;
       helocDebt += contribution;
+      //#endregion monthly-contribution-target
 
+      //#region margin-leverage-target
       const shareValueBeforeTrade = shares * row.close;
       const brokerageEquityAfterContribution =
         shareValueBeforeTrade - marginDebt + contribution;
@@ -172,14 +179,18 @@ export function simulateDcaPortfolio(
       roundingCashBalance = desiredShareValue - shares * row.close;
 
       marginDebt = desiredMarginDebt;
+      //#endregion margin-leverage-target
 
+      //#region heloc-cap-enforcement
       if (helocDebt > input.maxHelocDebt) {
         const overage = helocDebt - input.maxHelocDebt;
         helocLimitPaidBySale = Math.min(overage, shares * row.close);
         shares -= helocLimitPaidBySale / row.close;
         helocDebt -= helocLimitPaidBySale;
       }
+      //#endregion heloc-cap-enforcement
 
+      //#region checkpoint-row
       const shareValue = shares * row.close;
       const cashBalance = distributionCashBalance + roundingCashBalance;
       const totalAssets = shareValue + cashBalance;
@@ -231,6 +242,7 @@ export function simulateDcaPortfolio(
         marginCallDrawdown,
         collapseDrawdown
       });
+      //#endregion checkpoint-row
 
       pendingInterest = 0;
       pendingMarginInterest = 0;
@@ -248,6 +260,7 @@ export function summarizeSimulationRows(
   rows: DcaSimulationRow[],
   interval: SimulationInterval
 ): DcaSimulationRow[] {
+  //#region summarize-simulation-rows
   if (interval === 'monthly') {
     return rows.map((row) => ({ ...row }));
   }
@@ -277,6 +290,7 @@ export function summarizeSimulationRows(
       interestCapitalized: sum(group, 'interestCapitalized')
     };
   });
+  //#endregion summarize-simulation-rows
 }
 
 export function equityOutcomeHistogram(
@@ -286,6 +300,7 @@ export function equityOutcomeHistogram(
   bucketWidth = DEFAULT_OUTCOME_BUCKET_WIDTH,
   horizonDays = TEN_YEARS_IN_DAYS
 ): EquityOutcomeBucket[] {
+  //#region equity-outcome-histogram
   const sortedRows = [...marketRows].sort((left, right) => left.date.localeCompare(right.date));
   const startDates = equityOutcomeCompleteStartDates(
     sortedRows,
@@ -304,6 +319,7 @@ export function equityOutcomeHistogram(
   }
 
   return equityOutcomeBucketsFromOutcomes(outcomes, bucketWidth);
+  //#endregion equity-outcome-histogram
 }
 
 export function equityOutcomeForStartDate(
@@ -324,6 +340,7 @@ export function equityOutcomeBucketsFromOutcomes(
   outcomes: number[],
   bucketWidth = DEFAULT_OUTCOME_BUCKET_WIDTH
 ): EquityOutcomeBucket[] {
+  //#region equity-outcome-buckets
   const counts = new Map<number, number>();
   for (const outcome of outcomes) {
     const bucketStart = Math.floor(outcome / bucketWidth) * bucketWidth;
@@ -349,6 +366,7 @@ export function equityOutcomeBucketsFromOutcomes(
       };
     })
     .sort((left, right) => left.bucketStart - right.bucketStart);
+  //#endregion equity-outcome-buckets
 }
 
 export function equityOutcomeStartDates(
@@ -356,6 +374,7 @@ export function equityOutcomeStartDates(
   centerDate: string,
   windowSize = 1_000
 ): string[] {
+  //#region equity-outcome-start-dates
   const dates = [...new Set(
     [...marketRows]
       .sort((left, right) => left.date.localeCompare(right.date))
@@ -371,6 +390,7 @@ export function equityOutcomeStartDates(
   let startIndex = centerIndex - Math.floor(sampleSize / 2);
   startIndex = Math.max(0, Math.min(startIndex, dates.length - sampleSize));
   return dates.slice(startIndex, startIndex + sampleSize);
+  //#endregion equity-outcome-start-dates
 }
 
 export function equityOutcomeCompleteStartDates(
@@ -401,6 +421,7 @@ function shouldCapitalizeInterest(
   movingAverage120: number,
   equity: number
 ): boolean {
+  //#region capitalization-policy
   switch (policy) {
     case 'always':
       return true;
@@ -411,6 +432,7 @@ function shouldCapitalizeInterest(
     case 'movingAverage':
       return price <= movingAverage120;
   }
+  //#endregion capitalization-policy
 }
 
 function fillForwardPrimeRate(rows: PrimeRateRow[], date: string): number {
@@ -479,6 +501,7 @@ function drawdownToMaintenanceMarginCall(
   marginDebt: number,
   maintenanceMarginRequirement: number
 ): number {
+  //#region drawdown-to-maintenance-margin-call
   if (shareValue <= 0 || marginDebt <= 0) {
     return Number.POSITIVE_INFINITY;
   }
@@ -489,6 +512,7 @@ function drawdownToMaintenanceMarginCall(
     return Number.POSITIVE_INFINITY;
   }
   return Math.max(0, 1 - requiredShareValue / shareValue);
+  //#endregion drawdown-to-maintenance-margin-call
 }
 
 function percentileBucketStarts(outcomes: number[], bucketWidth: number): Map<number, number[]> {
