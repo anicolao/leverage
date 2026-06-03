@@ -10,6 +10,9 @@ permissions:
   pages: write
   id-token: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -21,31 +24,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
         with:
-          node-version: 24
-          cache: npm
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies
-        run: npm ci
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install Python package
-        run: python -m pip install -e .
+        run: nix develop --command npm ci
 
       - name: Check
-        run: npm run check
+        run: nix develop --command npm run check
 
       - name: Test
-        run: npm test
+        run: nix develop --command npm test
 
       - name: Build Pages artifact
-        run: npm run pages:build
+        run: nix develop --command npm run pages:build
         env:
           BASE_PATH: /${{ github.event.repository.name }}
 
