@@ -9,6 +9,7 @@ same helpers that the app uses.
 ## Current Chapters
 
 - Chapter: `book/chapters/01-what-this-simulator-tests.md`
+- Chapter: `book/chapters/02-how-to-read-the-interface.md`
 - Chapter: `book/chapters/prime-margin-heloc-interest.md`
 - Production region: `margin-rate-from-prime` in
   `src/lib/backtest/dcaSimulator.ts`
@@ -17,6 +18,7 @@ same helpers that the app uses.
 - Interactive component: `book/components/InterestAccrualDemo.ts`
 - Regression fixtures: `book/examples/interest-fixture.ts` and
   `book/examples/default-scenario.ts`
+- Interface inventory: `book/examples/interface-inventory.ts`
 - Verification: `book/examples/examples.test.ts`
 
 Run:

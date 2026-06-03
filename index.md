@@ -5,6 +5,7 @@ This is the pilot book for the leveraged XAW DCA simulator.
 Start with the first chapter:
 
 - [What This Simulator Tests](book/chapters/01-what-this-simulator-tests.html)
+- [How To Read The Interface](book/chapters/02-how-to-read-the-interface.html)
 - [Prime, Margin, and HELOC Interest](book/chapters/prime-margin-heloc-interest.html)
 
 The pilot demonstrates the LiTScript workflow: prose expands production

@@ -11,6 +11,7 @@ import {
   defaultScenarioPrimeRates,
   defaultScenarioStartDate
 } from './default-scenario';
+import { interfaceSectionIds, interfaceSections } from './interface-inventory';
 
 describe('book interest examples', () => {
   test('prime 4.45% maps to margin 3.50%', () => {
@@ -38,5 +39,24 @@ describe('book interest examples', () => {
     expect(input.leverageTarget).toBe(defaultLeverageTarget());
     expect(input.capitalizationPolicy).toBe('always');
     expect(input.primeRates).toBe(defaultScenarioPrimeRates);
+  });
+
+  test('interface inventory names a question and validation artifact for every section', () => {
+    expect(interfaceSectionIds()).toEqual([
+      'validation-summary',
+      'comparison-charts',
+      'simulation-controls',
+      'portfolio-stats',
+      'portfolio-path',
+      'checkpoint-table',
+      'outcome-histogram'
+    ]);
+
+    for (const section of interfaceSections) {
+      expect(section.title).not.toBe('');
+      expect(section.appLabel).not.toBe('');
+      expect(section.question).toMatch(/\?$/);
+      expect(section.validationArtifact).not.toBe('');
+    }
   });
 });
