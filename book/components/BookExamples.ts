@@ -1,11 +1,4 @@
-import {
-  annualDistributions,
-  buildSyntheticXawPriceProxy,
-  buildSyntheticXawProxy,
-  DEFAULT_XAW_PROXY_WEIGHTS,
-  totalReturnIndex,
-  type MarketRow
-} from '../../src/lib/backtest/marketData';
+import type { MarketRow } from '../../src/lib/backtest/marketData';
 import {
   equityOutcomeBucketsFromOutcomes,
   equityOutcomeCompleteStartDates,
@@ -21,6 +14,7 @@ import {
   defaultDcaSimulationInput
 } from '../../src/lib/backtest/defaultScenario';
 import { defaultScenarioPrimeRates, defaultScenarioStartDate } from '../examples/default-scenario';
+import { realMarketComparison, realMarketFixture } from '../examples/market-fixture';
 import './book-examples.css';
 
 const money = new Intl.NumberFormat('en-CA', {
@@ -56,6 +50,50 @@ function table(headers: string[], rows: Array<Array<string | number>>) {
 
 function metric(label: string, value: string) {
   return `<div class="metric"><span>${label}</span><strong>${value}</strong></div>`;
+}
+
+function lineChart(
+  rows: Array<{ date: string; actual: number; synthetic: number }>,
+  options: { actualLabel: string; syntheticLabel: string; valueFormatter?: (value: number) => string }
+) {
+  const width = 820;
+  const height = 280;
+  const padding = { top: 18, right: 30, bottom: 32, left: 58 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const values = rows.flatMap((row) => [row.actual, row.synthetic]);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const x = (index: number) => padding.left + (index / Math.max(rows.length - 1, 1)) * plotWidth;
+  const y = (value: number) =>
+    padding.top + (1 - (value - min) / Math.max(max - min, 0.000001)) * plotHeight;
+  const path = (key: 'actual' | 'synthetic') =>
+    rows.map((row, index) => `${index === 0 ? 'M' : 'L'} ${x(index).toFixed(1)} ${y(row[key]).toFixed(1)}`).join(' ');
+  const formatValue = options.valueFormatter ?? ((value: number) => number.format(value));
+  const ticks = [min, (min + max) / 2, max];
+
+  return `
+    <figure class="comparison-chart">
+      <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${options.actualLabel} compared with ${options.syntheticLabel}">
+        ${ticks
+          .map(
+            (tick) => `
+              <line class="grid-line" x1="${padding.left}" y1="${y(tick)}" x2="${width - padding.right}" y2="${y(tick)}"></line>
+              <text class="axis-label" x="${padding.left - 8}" y="${y(tick) + 4}" text-anchor="end">${formatValue(tick)}</text>
+            `
+          )
+          .join('')}
+        <path class="actual-line" d="${path('actual')}"></path>
+        <path class="synthetic-line" d="${path('synthetic')}"></path>
+        <text class="axis-label" x="${padding.left}" y="${height - 8}">${rows[0]?.date ?? ''}</text>
+        <text class="axis-label" x="${width - padding.right}" y="${height - 8}" text-anchor="end">${rows.at(-1)?.date ?? ''}</text>
+      </svg>
+      <figcaption>
+        <span><i class="actual-key"></i>${options.actualLabel}</span>
+        <span><i class="synthetic-key"></i>${options.syntheticLabel}</span>
+      </figcaption>
+    </figure>
+  `;
 }
 
 function baseInput(overrides: Partial<DcaSimulationInput> = {}): DcaSimulationInput {
@@ -99,45 +137,46 @@ class DefaultScenarioDemo extends HTMLElement {
 
 class SyntheticXawDemo extends HTMLElement {
   connectedCallback() {
-    const symbolData: Record<string, MarketRow[]> = {
-      SPY: [
-        { date: '2025-01-01', close: 100, dividends: 0 },
-        { date: '2025-01-02', close: 104, dividends: 1 }
-      ],
-      EFA: [
-        { date: '2025-01-01', close: 80, dividends: 0 },
-        { date: '2025-01-02', close: 82, dividends: 0.4 }
-      ],
-      EEM: [
-        { date: '2025-01-01', close: 50, dividends: 0 },
-        { date: '2025-01-02', close: 49, dividends: 0.2 }
-      ]
-    };
-    const fx = [
-      { date: '2025-01-01', close: 1.35, dividends: 0 },
-      { date: '2025-01-02', close: 1.36, dividends: 0 }
-    ];
-    const totalReturn = buildSyntheticXawProxy(symbolData, fx, DEFAULT_XAW_PROXY_WEIGHTS, 0);
-    const price = buildSyntheticXawPriceProxy(symbolData, fx, DEFAULT_XAW_PROXY_WEIGHTS, 0);
+    const fixture = realMarketFixture();
+    const comparison = realMarketComparison();
+    const sampleRows = comparison.rows.slice(0, 15);
 
     this.innerHTML = `
       <section class="demo">
-        <h3>Two-day synthetic proxy fixture</h3>
+        <h3>Actual 2023 XAW.TO overlap fixture</h3>
         <div class="metrics">
-          ${Object.entries(DEFAULT_XAW_PROXY_WEIGHTS)
-            .map(([symbol, weight]) => metric(`${symbol} weight`, percent.format(weight)))
-            .join('')}
+          ${metric('Fixture window', `${fixture.start} to ${fixture.end}`)}
+          ${metric('Actual XAW rows', number.format(fixture.symbols['XAW.TO'].length))}
+          ${metric('Comparable days', number.format(comparison.stats.overlapDays))}
+          ${metric('Total-return correlation', comparison.stats.correlation.toFixed(4))}
+          ${metric('Mean absolute error', percent.format(comparison.stats.meanAbsolutePercentError))}
+          ${metric('Distribution drag calibration', percent.format(comparison.distributionTaxDrag))}
         </div>
-        ${table(
-          ['Date', 'Price proxy', 'Total return proxy', 'Distribution'],
-          price.map((row, index) => [
-            row.date,
-            number.format(row.close),
-            number.format(totalReturn[index].close),
-            number.format(row.dividends)
-          ])
+        ${lineChart(
+          comparison.rows.map((row) => ({
+            date: row.date,
+            actual: row.actualTotalReturn,
+            synthetic: row.syntheticTotalReturn
+          })),
+          {
+            actualLabel: 'Actual XAW.TO total return',
+            syntheticLabel: 'Synthetic total return',
+            valueFormatter: (value) => number.format(value)
+          }
         )}
-        <p class="note">The example calls the same proxy builders as the validation chart and simulator.</p>
+        <div class="table-wrap">
+          ${table(
+            ['Date', 'Actual XAW close', 'Synthetic price', 'Actual total return', 'Synthetic total return'],
+            sampleRows.map((row) => [
+              row.date,
+              money.format(row.actualPrice),
+              money.format(row.syntheticPrice),
+              number.format(row.actualTotalReturn),
+              number.format(row.syntheticTotalReturn)
+            ])
+          )}
+        </div>
+        <p class="note">Rows are stored Yahoo Finance close and dividend data. The chart and table call the same proxy, scaling, total-return, and comparison helpers as the production app.</p>
       </section>
     `;
   }
@@ -145,29 +184,52 @@ class SyntheticXawDemo extends HTMLElement {
 
 class ReturnDistributionDemo extends HTMLElement {
   connectedCallback() {
-    const rows = [
-      { date: '2025-01-01', close: 100, dividends: 0 },
-      { date: '2025-01-02', close: 110, dividends: 5 },
-      { date: '2026-01-02', close: 99, dividends: 2 }
-    ];
-    const totalReturn = totalReturnIndex(rows);
-    const distributions = annualDistributions(rows);
+    const comparison = realMarketComparison();
+    const distributionRows = comparison.rows.filter(
+      (row) => row.actualDistribution > 0 || row.syntheticDistribution > 0
+    );
+    const sampleRows = [
+      ...comparison.rows.slice(0, 5),
+      ...distributionRows,
+      ...comparison.rows.slice(-5)
+    ].filter((row, index, rows) => rows.findIndex((candidate) => candidate.date === row.date) === index);
+
     this.innerHTML = `
       <section class="demo">
-        <h3>Price movement plus distribution cash</h3>
+        <h3>Real price, distributions, and total return</h3>
+        ${lineChart(
+          comparison.rows.map((row) => ({
+            date: row.date,
+            actual: row.actualPrice,
+            synthetic: row.syntheticPrice
+          })),
+          {
+            actualLabel: 'Actual XAW.TO close',
+            syntheticLabel: 'Scaled synthetic price',
+            valueFormatter: (value) => money.format(value)
+          }
+        )}
+        <div class="table-wrap">
+          ${table(
+            ['Date', 'Actual close', 'Actual distribution', 'Actual total return', 'Synthetic distribution'],
+            sampleRows.map((row) => [
+              row.date,
+              money.format(row.actualPrice),
+              money.format(row.actualDistribution),
+              number.format(row.actualTotalReturn),
+              money.format(row.syntheticDistribution)
+            ])
+          )}
+        </div>
         ${table(
-          ['Date', 'Close price', 'Distribution', 'Total return index'],
-          rows.map((row, index) => [
+          ['Year', 'Actual XAW distributions', 'Synthetic proxy distributions'],
+          comparison.distributions.actual.map((row, index) => [
             row.date,
             money.format(row.close),
-            money.format(row.dividends),
-            number.format(totalReturn[index].close)
+            money.format(comparison.distributions.synthetic[index]?.close ?? 0)
           ])
         )}
-        ${table(
-          ['Year', 'Annual distributions'],
-          distributions.map((row) => [row.date, money.format(row.close)])
-        )}
+        <p class="note">The distribution rows come from stored Yahoo dividend events. Total return is recomputed from the actual XAW close and dividend rows instead of using an invented three-row example.</p>
       </section>
     `;
   }

@@ -40,6 +40,15 @@ applies weights, tracks distributions, and applies the expense ratio.
 
 <<r:synthetic-xaw-total-return>>
 
+The example below uses stored Yahoo Finance rows for 2023, when actual
+`XAW.TO`, `SPY`, `EFA`, `EEM`, and `CAD=X` data all exist. It is intentionally
+an overlap-window example rather than a toy fixture: the chart shows the full
+year, and the table shows the first 15 comparable trading days so the reader
+can inspect actual XAW values beside the synthetic values computed by the same
+production helpers.
+
+<synthetic-xaw-demo></synthetic-xaw-demo>
+
 ## Price Proxy
 
 The price proxy gives the simulator a share-price-like series. The monthly
@@ -51,11 +60,11 @@ indexed space, and applies the expense ratio.
 
 <<r:synthetic-xaw-price>>
 
-<synthetic-xaw-demo></synthetic-xaw-demo>
-
 ## Validation Artifact
 
-`src/lib/backtest/xaw.test.ts` validates that TypeScript synthetic values match
-the Python fixture implementation, that pre-inception rows can be scaled to the
-XAW inception anchor, and that missing component dates are fill-forwarded
-instead of dropping a component's portfolio weight.
+`tests/fixtures/market-overlap-2023.json` stores the real overlap rows used by
+the example. `book/examples/examples.test.ts` checks that the fixture contains
+enough actual XAW rows and that the computed comparison has high overlap and
+correlation. `src/lib/backtest/xaw.test.ts` still validates the lower-level
+proxy mechanics against the Python fixture implementation, the XAW inception
+anchor scaling rule, and fill-forward behavior for missing component dates.

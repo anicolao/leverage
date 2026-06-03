@@ -38,6 +38,12 @@ This formula is used because if price rises from `$100` to `$110` and pays `$5`
 of cash, the investor's economic return is not just `10%`; it is `15%` before
 costs.
 
+The example uses the same stored 2023 Yahoo rows as the synthetic-proxy
+chapter. The chart compares actual XAW close values with the scaled synthetic
+price proxy; the table includes the beginning of the year, the actual XAW
+distribution dates, and the end of the year so price, distribution cash, and
+total return can be read together.
+
 <return-distribution-demo></return-distribution-demo>
 
 ## Limitation
@@ -49,6 +55,7 @@ future XAW distribution policy before XAW existed.
 
 ## Validation Artifact
 
-`src/lib/backtest/xaw.test.ts` validates that `totalReturnIndex` includes both
-price movement and distributions, and that `annualDistributions` aggregates
-daily cash distributions by calendar year.
+`book/examples/examples.test.ts` checks the stored real-data fixture and its
+computed comparison. `src/lib/backtest/xaw.test.ts` validates the lower-level
+rules: `totalReturnIndex` includes both price movement and distributions, and
+`annualDistributions` aggregates daily cash distributions by calendar year.

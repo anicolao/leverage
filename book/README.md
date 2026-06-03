@@ -45,6 +45,8 @@ same helpers that the app uses.
 - Interactive examples: `book/components/BookExamples.ts`
 - Regression fixtures: `book/examples/interest-fixture.ts` and
   `book/examples/default-scenario.ts`
+- Real market fixture: `tests/fixtures/market-overlap-2023.json`
+- Market comparison helper: `book/examples/market-fixture.ts`
 - Interface inventory: `book/examples/interface-inventory.ts`
 - Verification: `book/examples/examples.test.ts`
 

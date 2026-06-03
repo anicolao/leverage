@@ -12,6 +12,7 @@ import {
   defaultScenarioStartDate
 } from './default-scenario';
 import { interfaceSectionIds, interfaceSections } from './interface-inventory';
+import { realMarketComparison, realMarketFixture } from './market-fixture';
 
 describe('book interest examples', () => {
   test('prime 4.45% maps to margin 3.50%', () => {
@@ -58,5 +59,26 @@ describe('book interest examples', () => {
       expect(section.question).toMatch(/\?$/);
       expect(section.validationArtifact).not.toBe('');
     }
+  });
+
+  test('real market fixture contains enough XAW overlap data for book examples', () => {
+    const fixture = realMarketFixture();
+
+    expect(fixture.start).toBe('2023-01-03');
+    expect(fixture.end).toBe('2023-12-29');
+    expect(fixture.symbols['XAW.TO']).toHaveLength(250);
+    expect(fixture.symbols.SPY).toHaveLength(250);
+    expect(fixture.symbols['XAW.TO'].filter((row) => row.dividends > 0)).toHaveLength(2);
+  });
+
+  test('real market comparison mirrors production proxy calculations', () => {
+    const comparison = realMarketComparison();
+
+    expect(comparison.rows.length).toBeGreaterThan(200);
+    expect(comparison.stats.overlapDays).toBeGreaterThan(200);
+    expect(comparison.stats.correlation).toBeGreaterThan(0.95);
+    expect(comparison.stats.meanAbsolutePercentError).toBeLessThan(0.04);
+    expect(comparison.rows[0].actualPrice).toBeCloseTo(31.574167, 6);
+    expect(comparison.rows.at(-1)?.actualPrice).toBeCloseTo(36.367306, 6);
   });
 });

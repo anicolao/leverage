@@ -3,10 +3,13 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 
 import fixture from '../../../tests/fixtures/market-history.json';
+import realOverlapFixture from '../../../tests/fixtures/market-overlap-2023.json';
 import {
   annualDistributions,
   buildSyntheticXawPriceProxy,
   buildSyntheticXawProxy,
+  calculateComparisonStats,
+  calibrateDistributionTaxDrag,
   scaleToActualAtStart,
   totalReturnIndex,
   type MarketRow
@@ -94,6 +97,36 @@ describe('synthetic XAW.TO', () => {
       ['2025-01-02', 105],
       ['2025-01-03', 115]
     ]);
+  });
+
+  test('real 2023 overlap fixture compares synthetic proxy against actual XAW.TO', () => {
+    const symbols = realOverlapFixture.symbols as Record<string, MarketRow[]>;
+    const actualXaw = symbols['XAW.TO'];
+    const componentRows = {
+      SPY: symbols.SPY,
+      EFA: symbols.EFA,
+      EEM: symbols.EEM
+    };
+    const distributionTaxDrag = calibrateDistributionTaxDrag(
+      componentRows,
+      symbols['CAD=X'],
+      actualXaw
+    );
+    const synthetic = buildSyntheticXawProxy(
+      componentRows,
+      symbols['CAD=X'],
+      undefined,
+      undefined,
+      distributionTaxDrag
+    );
+    const actual = totalReturnIndex(actualXaw);
+    const stats = calculateComparisonStats(synthetic, actual);
+
+    expect(actualXaw).toHaveLength(250);
+    expect(actualXaw.filter((row) => row.dividends > 0)).toHaveLength(2);
+    expect(stats.overlapDays).toBeGreaterThan(200);
+    expect(stats.correlation).toBeGreaterThan(0.95);
+    expect(stats.meanAbsolutePercentError).toBeLessThan(0.04);
   });
 
   test('total return index includes price movement and distributions', () => {
