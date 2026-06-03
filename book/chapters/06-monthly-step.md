@@ -6,38 +6,36 @@
 
 # The Monthly Step
 
-## What
-
 The simulator reads daily market rows but records portfolio checkpoints monthly.
 A checkpoint is a saved account state after interest, distributions,
 contributions, rebalancing, and cap checks have been handled.
 
-## Why
+## Monthly Checkpoints
 
 Monthly checkpoints match the intended contribution cadence. Daily checkpoints
 would create noise, while annual checkpoints would hide the path where leverage
 stress can build.
 
-## How: Accrual Before The Checkpoint
+## Accrual Before The Checkpoint
 
 Interest is accrued between market rows, and distributions are accumulated as
 cash.
 
 <<r:monthly-interest-accrual>>
 
-Why this is daily: interest cost depends on elapsed time, not just the number of
-months. Using calendar days makes a short month and a long month accrue
-different interest.
+Interest accrues daily because cost depends on elapsed time, not just the
+number of months. Using calendar days makes a short month and a long month
+accrue different interest.
 
 <monthly-step-demo></monthly-step-demo>
 
-## How: Checkpoint Order
+## Checkpoint Order
 
 The monthly order is: snapshot rates and pending cash flows, handle margin
 interest, pay HELOC interest, draw the contribution, rebalance margin leverage,
 enforce the HELOC cap, record the row, and reset pending totals.
 
-Why this order matters: using distributions before share sales can avoid
+The order matters because using distributions before share sales can avoid
 selling shares, while enforcing the HELOC cap after contribution shows whether
 the new draw pushed debt beyond the configured limit.
 

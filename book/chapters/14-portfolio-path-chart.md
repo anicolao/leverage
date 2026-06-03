@@ -6,26 +6,24 @@
 
 # The Portfolio Path Chart
 
-## What
-
 The portfolio path chart shows assets, debt, equity, and proxy price through
 the selected simulation.
 
-## Why
+## Path Dependence
 
 Leveraged strategies are path-dependent. A final positive result can still hide
 a period where the account nearly hit a margin call or exhausted HELOC
 capacity.
 
-## How
+## Chart Inputs
 
 The chart reads the same monthly checkpoint rows as the table and summary
 tiles. Those rows are recorded after the monthly mechanics have already run.
 
 <<r:checkpoint-row>>
 
-Why the chart has two axes: assets, debt, and equity are portfolio-dollar
-values; proxy price is a per-share value.
+The chart has two axes because assets, debt, and equity are portfolio-dollar
+values, while proxy price is a per-share value.
 
 <monthly-step-demo></monthly-step-demo>
 

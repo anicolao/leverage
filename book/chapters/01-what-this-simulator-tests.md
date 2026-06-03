@@ -6,8 +6,6 @@
 
 # What This Simulator Tests
 
-## What
-
 This simulator tests a leveraged dollar-cost averaging strategy. Dollar-cost
 averaging means investing on a repeated schedule instead of trying to choose one
 perfect entry date. Leveraged means some of the invested money is borrowed.
@@ -17,7 +15,7 @@ HELOC, is a loan secured by home equity and controlled outside the brokerage
 account. A margin loan is money borrowed from the brokerage inside the
 investment account.
 
-## Why
+## The Risk Question
 
 The strategy tries to buy global equities over time while using borrowed money
 to increase exposure. That can improve outcomes when investment returns exceed
@@ -33,7 +31,7 @@ small relative to the broker loan. It matters because the brokerage may sell
 shares when prices are already low. That is the opposite of the intended
 behavior of holding or buying through a downturn.
 
-## How
+## Simulation Path
 
 The app models the strategy month by month:
 
@@ -53,12 +51,9 @@ returns, lending policy, tax treatment, liquidity, or investor behavior.
 
 ## Default Scenario
 
-What: the default scenario is the initial set of app controls.
-
-Why: putting those defaults in production code lets the app, tests, and book
-describe the same scenario instead of drifting apart.
-
-How: the default values live in `src/lib/backtest/defaultScenario.ts`.
+The default scenario is the initial set of app controls. Those defaults live in
+`src/lib/backtest/defaultScenario.ts` so the app, tests, and book describe the
+same scenario instead of drifting apart.
 
 <<r:default-dca-scenario-parameters>>
 

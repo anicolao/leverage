@@ -6,19 +6,17 @@
 
 # Tax Deduction Column
 
-## What
-
 The tax deduction column is a simple tracking field. It is not a tax return and
 not a full tax engine.
 
-## Why
+## A Narrow Tax Indicator
 
 Interest and distributions both matter to after-tax interpretation, but the
 current Svelte simulator does not model full Canadian tax filing rules. The
 column gives a narrow net-interest indicator without pretending to solve all
 tax questions.
 
-## How
+## Current Formula
 
 At each monthly checkpoint, the simulator records:
 
@@ -26,7 +24,7 @@ At each monthly checkpoint, the simulator records:
 taxDeduction = interestOwing - distributionsPaid
 ```
 
-Why distributions are subtracted: the current tracking column treats
+Distributions are subtracted because the current tracking column treats
 distribution cash as offsetting the interest burden for that checkpoint.
 
 <tax-deduction-demo></tax-deduction-demo>
