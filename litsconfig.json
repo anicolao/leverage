@@ -1,6 +1,7 @@
 {
   "$schema": "./node_modules/litscript/schemas/litsconfig-schema.json",
   "outDir": "./book/generated",
+  "tocFile": "../toc.json",
   "files": ["index.md", "book/**/*.md"],
   "exclude": [
     ".git",
@@ -12,7 +13,7 @@
     "tests/**",
     "vite.config.ts"
   ],
-  "updateToc": true,
+  "updateToc": false,
   "excludeFromToc": ["book/generated/**"],
   "dependencyGraph": "dependencies.json",
   "frontMatter": {

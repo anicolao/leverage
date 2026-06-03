@@ -1,0 +1,112 @@
+[
+  {
+    "page": "Home",
+    "file": "index.html",
+    "desc": "Book landing page"
+  },
+  {
+    "page": "Part 1: Orientation",
+    "subs": [
+      {
+        "page": "1. What This Simulator Tests",
+        "file": "book/chapters/01-what-this-simulator-tests.html",
+        "desc": "Strategy scope, core terms, default scenario, and non-advice boundary"
+      },
+      {
+        "page": "2. How To Read The Interface",
+        "file": "book/chapters/02-how-to-read-the-interface.html",
+        "desc": "Validation charts, controls, portfolio path, checkpoint table, and outcome histogram"
+      }
+    ]
+  },
+  {
+    "page": "Part 2: Market Data",
+    "subs": [
+      {
+        "page": "3. The Synthetic XAW Proxy",
+        "file": "book/chapters/03-synthetic-xaw-proxy.html",
+        "desc": "Proxy inputs, CAD conversion, weighting, scaling, and validation"
+      },
+      {
+        "page": "4. Price, Distributions, and Total Return",
+        "file": "book/chapters/04-price-distributions-total-return.html",
+        "desc": "Raw price, distribution cash, and total-return indexing"
+      },
+      {
+        "page": "5. Prime and Margin Rates",
+        "file": "book/chapters/05-prime-and-margin-rates.html",
+        "desc": "Canadian prime, margin-rate discount, and interest accrual example"
+      }
+    ]
+  },
+  {
+    "page": "Part 3: Monthly Simulation",
+    "subs": [
+      {
+        "page": "6. The Monthly Step",
+        "file": "book/chapters/06-monthly-step.html",
+        "desc": "Monthly checkpoint order of operations"
+      },
+      {
+        "page": "7. Contributions and Investment Target",
+        "file": "book/chapters/07-contributions-and-investment-target.html",
+        "desc": "HELOC-funded contribution cadence and stopping rule"
+      },
+      {
+        "page": "8. Board Lots and Cash Balance",
+        "file": "book/chapters/08-board-lots-and-cash-balance.html",
+        "desc": "100-share board-lot rounding and tracked cash"
+      },
+      {
+        "page": "9. Debt, Equity, and Margin Leverage",
+        "file": "book/chapters/09-debt-equity-and-margin-leverage.html",
+        "desc": "Broker margin target, HELOC debt, total debt, and equity"
+      },
+      {
+        "page": "10. Interest Handling",
+        "file": "book/chapters/10-interest-handling.html",
+        "desc": "Margin interest policies and distribution-first HELOC interest payment"
+      },
+      {
+        "page": "11. HELOC Cap Enforcement",
+        "file": "book/chapters/11-heloc-cap-enforcement.html",
+        "desc": "Maximum HELOC debt and forced share sales"
+      },
+      {
+        "page": "12. Tax Deduction Column",
+        "file": "book/chapters/12-tax-deduction-column.html",
+        "desc": "Current net-interest tracking column and its limits"
+      }
+    ]
+  },
+  {
+    "page": "Part 4: Risk and Outcomes",
+    "subs": [
+      {
+        "page": "13. Drawdown to Margin Call",
+        "file": "book/chapters/13-drawdown-to-margin-call.html",
+        "desc": "Maintenance-margin drawdown and collapse drawdown"
+      },
+      {
+        "page": "14. The Portfolio Path Chart",
+        "file": "book/chapters/14-portfolio-path-chart.html",
+        "desc": "Assets, debt, equity, and proxy price through time"
+      },
+      {
+        "page": "15. The Checkpoint Table",
+        "file": "book/chapters/15-checkpoint-table.html",
+        "desc": "Monthly rows and period summaries"
+      },
+      {
+        "page": "16. Outcome Histograms",
+        "file": "book/chapters/16-outcome-histograms.html",
+        "desc": "Sampled start dates, fixed horizons, cumulative buckets, and percentiles"
+      },
+      {
+        "page": "17. Reading Bad Outcomes",
+        "file": "book/chapters/17-reading-bad-outcomes.html",
+        "desc": "Negative equity, forced sales, HELOC exhaustion, and stress windows"
+      }
+    ]
+  }
+]
