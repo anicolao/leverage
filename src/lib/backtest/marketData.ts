@@ -6,11 +6,13 @@ export type MarketRow = {
 
 export type WeightedSymbols = Record<string, MarketRow[]>;
 
-const DEFAULT_WEIGHTS: Record<string, number> = {
+//#region synthetic-xaw-default-weights
+export const DEFAULT_XAW_PROXY_WEIGHTS: Record<string, number> = {
   SPY: 0.55,
   EFA: 0.35,
   EEM: 0.1
 };
+//#endregion synthetic-xaw-default-weights
 
 const DEFAULT_XAW_MER = 0.0022;
 
@@ -36,10 +38,11 @@ export function totalReturnIndex(rows: MarketRow[], startValue = 100): MarketRow
 export function buildSyntheticXawProxy(
   symbolData: WeightedSymbols,
   usdCadRows: MarketRow[],
-  weights: Record<string, number> = DEFAULT_WEIGHTS,
+  weights: Record<string, number> = DEFAULT_XAW_PROXY_WEIGHTS,
   annualExpenseRatio = DEFAULT_XAW_MER,
   distributionTaxDrag = 0
 ): MarketRow[] {
+  //#region synthetic-xaw-total-return
   const totalReturnParts = new Map<string, number>();
   const dividendParts = new Map<string, number>();
   const calendar = alignedSyntheticCalendar(symbolData, usdCadRows, weights);
@@ -67,15 +70,17 @@ export function buildSyntheticXawProxy(
   }));
 
   return applyAnnualExpenseRatio(rows, annualExpenseRatio);
+  //#endregion synthetic-xaw-total-return
 }
 
 export function buildSyntheticXawPriceProxy(
   symbolData: WeightedSymbols,
   usdCadRows: MarketRow[],
-  weights: Record<string, number> = DEFAULT_WEIGHTS,
+  weights: Record<string, number> = DEFAULT_XAW_PROXY_WEIGHTS,
   annualExpenseRatio = DEFAULT_XAW_MER,
   distributionTaxDrag = 0
 ): MarketRow[] {
+  //#region synthetic-xaw-price
   const priceParts = new Map<string, number>();
   const dividendParts = new Map<string, number>();
   const firstCadCloseBySymbol = new Map<string, number>();
@@ -103,13 +108,14 @@ export function buildSyntheticXawPriceProxy(
   }));
 
   return applyAnnualExpenseRatio(rows, annualExpenseRatio);
+  //#endregion synthetic-xaw-price
 }
 
 export function calibrateDistributionTaxDrag(
   symbolData: WeightedSymbols,
   usdCadRows: MarketRow[],
   actualRows: MarketRow[],
-  weights: Record<string, number> = DEFAULT_WEIGHTS,
+  weights: Record<string, number> = DEFAULT_XAW_PROXY_WEIGHTS,
   annualExpenseRatio = DEFAULT_XAW_MER
 ): number {
   const actual = totalReturnIndex(actualRows);
