@@ -12,6 +12,10 @@
     type EquityOutcomeBucket,
     type SimulationInterval
   } from '$lib/backtest/dcaSimulator';
+  import {
+    DEFAULT_DCA_SCENARIO_PARAMETERS,
+    leverageTargetFromPercent
+  } from '$lib/backtest/defaultScenario';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -166,18 +170,22 @@
   };
 
   let simulationStartDate = $state(initialSimulationStartDate());
-  let investmentTarget = $state(500_000);
-  let maxHelocDebt = $state(1_000_000);
-  let monthlyContribution = $state(100_000);
-  let leverageTargetPercent = $state(20);
-  let capitalizationPolicy = $state<CapitalizationPolicy>('always');
-  let simulationInterval = $state<SimulationInterval>('monthly');
-  let outcomeHorizonYears = $state(10);
+  let investmentTarget = $state(DEFAULT_DCA_SCENARIO_PARAMETERS.investmentTarget);
+  let maxHelocDebt = $state(DEFAULT_DCA_SCENARIO_PARAMETERS.maxHelocDebt);
+  let monthlyContribution = $state(DEFAULT_DCA_SCENARIO_PARAMETERS.monthlyContribution);
+  let leverageTargetPercent = $state(DEFAULT_DCA_SCENARIO_PARAMETERS.leverageTargetPercent);
+  let capitalizationPolicy = $state<CapitalizationPolicy>(
+    DEFAULT_DCA_SCENARIO_PARAMETERS.capitalizationPolicy
+  );
+  let simulationInterval = $state<SimulationInterval>(
+    DEFAULT_DCA_SCENARIO_PARAMETERS.simulationInterval
+  );
+  let outcomeHorizonYears = $state(DEFAULT_DCA_SCENARIO_PARAMETERS.outcomeHorizonYears);
   let simulationInput = $derived({
     startDate: simulationStartDate,
     investmentTarget,
     monthlyContribution,
-    leverageTarget: Math.min(0.95, Math.max(0, leverageTargetPercent / 100)),
+    leverageTarget: leverageTargetFromPercent(leverageTargetPercent),
     maxHelocDebt,
     primeRates: data.primeRates,
     capitalizationPolicy
