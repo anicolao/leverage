@@ -17,6 +17,7 @@ export const DEFAULT_XAW_PROXY_WEIGHTS: Record<string, number> = {
 const DEFAULT_XAW_MER = 0.0022;
 
 export function totalReturnIndex(rows: MarketRow[], startValue = 100): MarketRow[] {
+  //#region total-return-index
   const sorted = [...rows].sort(compareDate);
   let level = startValue;
 
@@ -33,6 +34,7 @@ export function totalReturnIndex(rows: MarketRow[], startValue = 100): MarketRow
       dividends: row.dividends
     };
   });
+  //#endregion total-return-index
 }
 
 export function buildSyntheticXawProxy(
@@ -250,6 +252,7 @@ export function rebaseToFirstOverlap(
 }
 
 export function annualDistributions(rows: MarketRow[]): MarketRow[] {
+  //#region annual-distributions
   const totals = new Map<string, number>();
   for (const row of rows) {
     const year = row.date.slice(0, 4);
@@ -263,6 +266,7 @@ export function annualDistributions(rows: MarketRow[]): MarketRow[] {
       close: value,
       dividends: value
     }));
+  //#endregion annual-distributions
 }
 
 function alignedSyntheticCalendar(

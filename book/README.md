@@ -11,6 +11,7 @@ same helpers that the app uses.
 - Chapter: `book/chapters/01-what-this-simulator-tests.md`
 - Chapter: `book/chapters/02-how-to-read-the-interface.md`
 - Chapter: `book/chapters/03-synthetic-xaw-proxy.md`
+- Chapter: `book/chapters/04-price-distributions-total-return.md`
 - Chapter: `book/chapters/prime-margin-heloc-interest.md`
 - Production region: `margin-rate-from-prime` in
   `src/lib/backtest/dcaSimulator.ts`
@@ -18,6 +19,8 @@ same helpers that the app uses.
   `src/lib/backtest/defaultScenario.ts`
 - Production regions: `synthetic-xaw-default-weights`,
   `synthetic-xaw-total-return`, and `synthetic-xaw-price` in
+  `src/lib/backtest/marketData.ts`
+- Production regions: `annual-distributions` and `total-return-index` in
   `src/lib/backtest/marketData.ts`
 - Interactive component: `book/components/InterestAccrualDemo.ts`
 - Regression fixtures: `book/examples/interest-fixture.ts` and

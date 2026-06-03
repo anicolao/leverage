@@ -4,9 +4,11 @@ import { describe, expect, test } from 'vitest';
 
 import fixture from '../../../tests/fixtures/market-history.json';
 import {
+  annualDistributions,
   buildSyntheticXawPriceProxy,
   buildSyntheticXawProxy,
   scaleToActualAtStart,
+  totalReturnIndex,
   type MarketRow
 } from './marketData';
 
@@ -91,6 +93,38 @@ describe('synthetic XAW.TO', () => {
       ['2025-01-01', 100],
       ['2025-01-02', 105],
       ['2025-01-03', 115]
+    ]);
+  });
+
+  test('total return index includes price movement and distributions', () => {
+    const rows = [
+      { date: '2025-01-01', close: 100, dividends: 0 },
+      { date: '2025-01-02', close: 110, dividends: 5 },
+      { date: '2025-01-03', close: 99, dividends: 0 }
+    ];
+
+    const result = totalReturnIndex(rows);
+
+    expect(result.map((row) => row.date)).toEqual([
+      '2025-01-01',
+      '2025-01-02',
+      '2025-01-03'
+    ]);
+    expect(result[0].close).toBeCloseTo(100, 12);
+    expect(result[1].close).toBeCloseTo(115, 12);
+    expect(result[2].close).toBeCloseTo(103.5, 12);
+  });
+
+  test('annual distributions aggregate daily cash distributions by calendar year', () => {
+    const rows = [
+      { date: '2025-01-01', close: 100, dividends: 0.1 },
+      { date: '2025-03-01', close: 101, dividends: 0.2 },
+      { date: '2026-01-01', close: 102, dividends: 0.3 }
+    ];
+
+    expect(annualDistributions(rows)).toEqual([
+      { date: '2025', close: 0.30000000000000004, dividends: 0.30000000000000004 },
+      { date: '2026', close: 0.3, dividends: 0.3 }
     ]);
   });
 });

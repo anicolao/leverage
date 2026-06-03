@@ -7,6 +7,7 @@ Start with the first chapter:
 - [What This Simulator Tests](book/chapters/01-what-this-simulator-tests.html)
 - [How To Read The Interface](book/chapters/02-how-to-read-the-interface.html)
 - [The Synthetic XAW Proxy](book/chapters/03-synthetic-xaw-proxy.html)
+- [Price, Distributions, and Total Return](book/chapters/04-price-distributions-total-return.html)
 - [Prime, Margin, and HELOC Interest](book/chapters/prime-margin-heloc-interest.html)
 
 The pilot demonstrates the LiTScript workflow: prose expands production
