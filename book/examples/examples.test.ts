@@ -13,6 +13,7 @@ import {
 } from './default-scenario';
 import { interfaceSectionIds, interfaceSections } from './interface-inventory';
 import { realMarketComparison, realMarketFixture } from './market-fixture';
+import { part3XawMarketRows, part3XawSimulationRows } from './part3-market';
 
 describe('book interest examples', () => {
   test('prime 4.45% maps to margin 3.50%', () => {
@@ -80,5 +81,18 @@ describe('book interest examples', () => {
     expect(comparison.stats.meanAbsolutePercentError).toBeLessThan(0.04);
     expect(comparison.rows[0].actualPrice).toBeCloseTo(31.574167, 6);
     expect(comparison.rows.at(-1)?.actualPrice).toBeCloseTo(36.367306, 6);
+  });
+
+  test('part 3 examples simulate monthly checkpoints from real XAW data', () => {
+    const marketRows = part3XawMarketRows();
+    const rows = part3XawSimulationRows();
+
+    expect(marketRows).toBe(realMarketFixture().symbols['XAW.TO']);
+    expect(marketRows.length).toBe(250);
+    expect(rows).toHaveLength(12);
+    expect(rows[0].date).toBe('2023-01-03');
+    expect(rows.at(-1)?.date).toBe('2023-12-01');
+    expect(rows.some((row) => row.distributionsPaid > 0)).toBe(true);
+    expect(rows.at(-1)?.price).toBeGreaterThan(rows[0].price);
   });
 });

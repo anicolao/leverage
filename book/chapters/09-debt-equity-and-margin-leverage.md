@@ -7,7 +7,11 @@
 # Debt, Equity, and Margin Leverage
 
 Margin debt is the broker loan inside the investment account. HELOC debt is a
-separate loan outside the brokerage account. Equity is assets minus debt.
+separate loan outside the brokerage account. Equity is assets minus debt. The
+simulator separates these fields because each one answers a different risk
+question: margin debt determines brokerage leverage, HELOC debt determines
+outside borrowing capacity, and equity tells the investor what remains after
+both debts are subtracted.
 
 ## Brokerage Risk
 
@@ -26,7 +30,7 @@ to keep broker debt at the selected percentage of brokerage share value.
 HELOC debt is excluded from the target because it is not broker debt inside the
 margin account, so it does not decide whether the broker liquidates the account.
 
-<leverage-board-lot-demo></leverage-board-lot-demo>
+<debt-equity-demo></debt-equity-demo>
 
 ## Recording Equity
 
@@ -38,6 +42,11 @@ equity.
 A leveraged portfolio can have a large share value and still have weak or
 negative equity if debt is larger, so equity is recorded as the net claim left
 for the investor.
+
+The graph uses the stored `XAW.TO` fixture to show why the separate fields are
+needed. Share value moves with price and trades, margin debt follows the
+leverage target, HELOC debt follows contributions and capitalized interest, and
+equity is the residual after those debts.
 
 ## Validation Artifact
 

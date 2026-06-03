@@ -7,9 +7,12 @@
 # Interest Handling
 
 Interest is the cost of borrowing. The simulator tracks margin interest and
-HELOC interest separately because they are paid through different rules.
+HELOC interest separately because the debts sit in different places and are
+paid through different rules. Margin interest can either be paid by selling
+shares or capitalized into HELOC debt, while HELOC interest uses distribution
+cash first and then share-sale proceeds if the distributions are not enough.
 
-## Why Interest Can Force Sales
+## Forced-Sale Risk
 
 Interest can force share sales during downturns. That matters because selling
 shares while prices are low reduces the number of shares available for a later
@@ -42,6 +45,11 @@ Distributions are used first because cash can pay interest without reducing
 share count, which avoids selling assets during market stress.
 
 <interest-policy-demo></interest-policy-demo>
+
+The chart runs all four margin-interest policies against the same real 2023
+`XAW.TO` fixture. That keeps the market path constant, so any difference in
+ending HELOC debt comes from the payment rule rather than from a different set
+of prices.
 
 ## Validation Artifact
 

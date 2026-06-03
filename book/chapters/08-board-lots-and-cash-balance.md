@@ -7,13 +7,11 @@
 # Board Lots and Cash Balance
 
 A board lot is a standard trading block. This simulator rounds rebalanced share
-holdings to 100-share board lots.
-
-## Why Rounding Matters
-
-Rounding matters because the desired leverage target usually produces a
-fractional or non-board-lot share count. If the model ignored rounding, it would
-make trades that the chosen rule does not allow.
+holdings to 100-share board lots because the model intentionally represents a
+coarse trading rule instead of allowing every rebalance to buy an exact
+fractional share count. Rounding matters because the desired leverage target
+usually lands between board lots; if the simulator ignored that, the reported
+leverage would look cleaner than the trade rule actually permits.
 
 ## Rounding Cash
 
@@ -27,6 +25,10 @@ The rounded share value is then larger than desired share value, and the cash
 field records that difference so total assets still reconcile.
 
 <leverage-board-lot-demo></leverage-board-lot-demo>
+
+The chart uses real 2023 `XAW.TO` monthly checkpoint prices. The selected
+target stays fixed, while the actual leverage line moves around it because
+100-share rounding converts a continuous target into discrete trades.
 
 ## Validation Artifact
 

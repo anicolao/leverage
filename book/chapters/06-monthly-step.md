@@ -6,20 +6,26 @@
 
 # The Monthly Step
 
-The simulator reads daily market rows but records portfolio checkpoints monthly.
-A checkpoint is a saved account state after interest, distributions,
-contributions, rebalancing, and cap checks have been handled.
+The simulator reads daily market rows because prices, elapsed days, and
+distribution events happen on trading days. It records portfolio checkpoints
+monthly because the strategy contributes monthly and the reader needs a table
+that follows the investment cadence instead of a noisy daily ledger. A
+checkpoint is the account state after the month-to-date interest,
+distributions, contribution, margin rebalance, HELOC cap check, and risk fields
+have all been resolved.
 
-## Monthly Checkpoints
+## Checkpoints From Daily Data
 
-Monthly checkpoints match the intended contribution cadence. Daily checkpoints
-would create noise, while annual checkpoints would hide the path where leverage
-stress can build.
-
-## Accrual Before The Checkpoint
+Monthly checkpoints matter because leverage risk is path-dependent. If the
+book skipped straight from January to December, the reader could see the ending
+equity but not the months where debt, rounding cash, interest, or HELOC
+capacity changed the strategy's room to maneuver. The demo below uses the
+stored 2023 Yahoo Finance `XAW.TO` fixture, so the monthly rows are produced
+from actual daily closes and dividend events rather than a three-row toy
+market.
 
 Interest is accrued between market rows, and distributions are accumulated as
-cash.
+cash before the monthly checkpoint handles the account rules.
 
 <<r:monthly-interest-accrual>>
 
