@@ -1017,12 +1017,13 @@
 
   .sim-stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 158px), 1fr));
     gap: 12px;
     margin: 0 0 18px;
   }
 
   .sim-stats div {
+    min-width: 0;
     border-top: 3px solid #7b8d85;
     padding: 10px 0 0;
   }
@@ -1037,7 +1038,11 @@
   .sim-stats strong {
     display: block;
     margin-top: 6px;
-    font-size: 1.2rem;
+    max-width: 100%;
+    font-size: clamp(0.92rem, 0.55vw + 0.82rem, 1.16rem);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.14;
+    overflow-wrap: anywhere;
   }
 
   .tabs {
