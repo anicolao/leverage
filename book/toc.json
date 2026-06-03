@@ -23,9 +23,9 @@
     "page": "Part 2: Market Data",
     "subs": [
       {
-        "page": "3. The Synthetic XAW Proxy",
+        "page": "3. Single-Ticker ETF Proxies",
         "file": "book/chapters/03-synthetic-xaw-proxy.html",
-        "desc": "Proxy inputs, CAD conversion, weighting, scaling, and validation"
+        "desc": "ETF choices, proxy inputs, CAD conversion, weighting, scaling, and validation"
       },
       {
         "page": "4. Price, Distributions, and Total Return",

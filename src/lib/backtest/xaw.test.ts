@@ -5,6 +5,9 @@ import { describe, expect, test } from 'vitest';
 import fixture from '../../../tests/fixtures/market-history.json';
 import realOverlapFixture from '../../../tests/fixtures/market-overlap-2023.json';
 import {
+  DEFAULT_ETF_STRATEGY,
+  DEFAULT_XAW_PROXY_WEIGHTS,
+  SINGLE_TICKER_STRATEGIES,
   annualDistributions,
   buildSyntheticXawPriceProxy,
   buildSyntheticXawProxy,
@@ -19,6 +22,22 @@ const repoRoot = fileURLToPath(new URL('../../..', import.meta.url));
 const fixturePath = fileURLToPath(new URL('../../../tests/fixtures/market-history.json', import.meta.url));
 
 describe('synthetic XAW.TO', () => {
+  test('single-ticker strategies define normalized synthetic proxy weights', () => {
+    expect(DEFAULT_ETF_STRATEGY).toBe('XAW');
+    expect(DEFAULT_XAW_PROXY_WEIGHTS).toEqual(SINGLE_TICKER_STRATEGIES.XAW.syntheticWeights);
+
+    for (const strategy of Object.values(SINGLE_TICKER_STRATEGIES)) {
+      const weightTotal = Object.values(strategy.syntheticWeights).reduce(
+        (total, weight) => total + weight,
+        0
+      );
+
+      expect(strategy.ticker).toMatch(/\.TO$/);
+      expect(strategy.inceptionDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(weightTotal).toBeCloseTo(1, 12);
+    }
+  });
+
   test('TypeScript synthetic values match Python synthetic values', () => {
     const symbols = fixture.symbols as Record<string, MarketRow[]>;
     const typescriptRows = buildSyntheticXawProxy(
@@ -96,6 +115,26 @@ describe('synthetic XAW.TO', () => {
       ['2025-01-01', 100],
       ['2025-01-02', 105],
       ['2025-01-03', 115]
+    ]);
+  });
+
+  test('does not convert Canadian-listed proxy components through USD/CAD', () => {
+    const symbolData = {
+      'XIU.TO': [
+        { date: '2025-01-01', close: 100, dividends: 0 },
+        { date: '2025-01-02', close: 100, dividends: 1 }
+      ]
+    };
+    const usdCad = [
+      { date: '2025-01-01', close: 2, dividends: 0 },
+      { date: '2025-01-02', close: 3, dividends: 0 }
+    ];
+
+    const price = buildSyntheticXawPriceProxy(symbolData, usdCad, { 'XIU.TO': 1 }, 0);
+
+    expect(price).toEqual([
+      { date: '2025-01-01', close: 100, dividends: 0 },
+      { date: '2025-01-02', close: 100, dividends: 1 }
     ]);
   });
 

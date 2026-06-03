@@ -1,4 +1,4 @@
-import type { MarketRow } from '../../src/lib/backtest/marketData';
+import { SINGLE_TICKER_STRATEGIES, type MarketRow } from '../../src/lib/backtest/marketData';
 import {
   equityOutcomeBucketsFromOutcomes,
   equityOutcomeCompleteStartDates,
@@ -50,6 +50,12 @@ function table(headers: string[], rows: Array<Array<string | number>>) {
 
 function metric(label: string, value: string) {
   return `<div class="metric"><span>${label}</span><strong>${value}</strong></div>`;
+}
+
+function formatWeights(weights: Record<string, number>) {
+  return Object.entries(weights)
+    .map(([symbol, weight]) => `${percent.format(weight)} ${symbol}`)
+    .join(', ');
 }
 
 function lineChart(
@@ -191,6 +197,29 @@ class SyntheticXawDemo extends HTMLElement {
           )}
         </div>
         <p class="note">Rows are stored Yahoo Finance close and dividend data. The chart and table call the same proxy, scaling, total-return, and comparison helpers as the production app.</p>
+      </section>
+    `;
+  }
+}
+
+class StrategyConfigDemo extends HTMLElement {
+  connectedCallback() {
+    this.innerHTML = `
+      <section class="demo">
+        <h3>Configured single-ticker strategies</h3>
+        <div class="table-wrap">
+          ${table(
+            ['Strategy', 'Actual ticker', 'Actual data starts', 'Synthetic proxy mix', 'Notes'],
+            Object.entries(SINGLE_TICKER_STRATEGIES).map(([key, strategy]) => [
+              key,
+              strategy.ticker,
+              strategy.inceptionDate,
+              formatWeights(strategy.syntheticWeights),
+              strategy.notes
+            ])
+          )}
+        </div>
+        <p class="note">This table imports the same strategy map as the production app. When the app changes a ticker, inception date, or proxy weight, the book table changes with it.</p>
       </section>
     `;
   }
@@ -513,6 +542,7 @@ class OutcomeHistogramDemo extends HTMLElement {
 }
 
 defineElement('default-scenario-demo', DefaultScenarioDemo);
+defineElement('strategy-config-demo', StrategyConfigDemo);
 defineElement('synthetic-xaw-demo', SyntheticXawDemo);
 defineElement('return-distribution-demo', ReturnDistributionDemo);
 defineElement('monthly-step-demo', MonthlyStepDemo);

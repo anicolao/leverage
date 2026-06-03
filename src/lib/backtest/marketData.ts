@@ -6,12 +6,67 @@ export type MarketRow = {
 
 export type WeightedSymbols = Record<string, MarketRow[]>;
 
-//#region synthetic-xaw-default-weights
-export const DEFAULT_XAW_PROXY_WEIGHTS: Record<string, number> = {
-  SPY: 0.55,
-  EFA: 0.35,
-  EEM: 0.1
+export type EtfStrategy = 'XAW' | 'VXC' | 'XWD' | 'XEQT' | 'VEQT';
+
+export type ProxyWeightConfig = {
+  displayName: string;
+  ticker: string;
+  inceptionDate: string;
+  syntheticWeights: Record<string, number>;
+  craTaxEligible: boolean;
+  notes: string;
 };
+
+export const DEFAULT_ETF_STRATEGY: EtfStrategy = 'XAW';
+
+//#region single-ticker-strategies
+export const SINGLE_TICKER_STRATEGIES: Record<EtfStrategy, ProxyWeightConfig> = {
+  XAW: {
+    displayName: 'iShares Core MSCI All Country World ex Canada Index ETF',
+    ticker: 'XAW.TO',
+    inceptionDate: '2015-02-10',
+    syntheticWeights: { SPY: 0.55, EFA: 0.35, EEM: 0.1 },
+    craTaxEligible: true,
+    notes: 'Global exposure excluding Canada. Unhedged.'
+  },
+  VXC: {
+    displayName: 'Vanguard Global All Cap ex Canada Index ETF',
+    ticker: 'VXC.TO',
+    inceptionDate: '2014-06-30',
+    syntheticWeights: { SPY: 0.55, EFA: 0.35, EEM: 0.1 },
+    craTaxEligible: true,
+    notes: 'Direct competitor to XAW. Virtually identical global ex-Canada allocation.'
+  },
+  XWD: {
+    displayName: 'iShares MSCI World Index ETF',
+    ticker: 'XWD.TO',
+    inceptionDate: '2009-06-18',
+    syntheticWeights: { SPY: 0.65, EFA: 0.35 },
+    craTaxEligible: true,
+    notes: 'Developed world index. Includes a negligible baseline allocation to Canada.'
+  },
+  XEQT: {
+    displayName: 'iShares Core Equity ETF Portfolio',
+    ticker: 'XEQT.TO',
+    inceptionDate: '2019-08-07',
+    syntheticWeights: { SPY: 0.45, 'XIU.TO': 0.25, EFA: 0.25, EEM: 0.05 },
+    craTaxEligible: true,
+    notes: 'All-in-one asset allocation. Features a structural overweight to Canadian equities.'
+  },
+  VEQT: {
+    displayName: 'Vanguard All-Equity ETF Portfolio',
+    ticker: 'VEQT.TO',
+    inceptionDate: '2019-01-29',
+    syntheticWeights: { SPY: 0.43, 'XIU.TO': 0.3, EFA: 0.2, EEM: 0.07 },
+    craTaxEligible: true,
+    notes: 'All-in-one asset allocation. Features a structural overweight to Canadian equities.'
+  }
+};
+//#endregion single-ticker-strategies
+
+//#region synthetic-xaw-default-weights
+export const DEFAULT_XAW_PROXY_WEIGHTS: Record<string, number> =
+  SINGLE_TICKER_STRATEGIES.XAW.syntheticWeights;
 //#endregion synthetic-xaw-default-weights
 
 const DEFAULT_XAW_MER = 0.0022;
@@ -52,8 +107,9 @@ export function buildSyntheticXawProxy(
   for (const [symbol, weight] of Object.entries(weights)) {
     const cadRows = calendar.map((row) => ({
       date: row.date,
-      close: row.closeBySymbol[symbol] * row.usdCad,
-      dividends: row.dividendsBySymbol[symbol] * row.usdCad * (1 - distributionTaxDrag)
+      close: toCadValue(row.closeBySymbol[symbol], symbol, row.usdCad),
+      dividends: toCadValue(row.dividendsBySymbol[symbol], symbol, row.usdCad) *
+        (1 - distributionTaxDrag)
     }));
 
     for (const row of totalReturnIndex(cadRows)) {
@@ -90,12 +146,13 @@ export function buildSyntheticXawPriceProxy(
 
   for (const [symbol, weight] of Object.entries(weights)) {
     for (const row of calendar) {
-      const cadClose = row.closeBySymbol[symbol] * row.usdCad;
+      const cadClose = toCadValue(row.closeBySymbol[symbol], symbol, row.usdCad);
       const firstCadClose = firstCadCloseBySymbol.get(symbol) ?? cadClose;
       firstCadCloseBySymbol.set(symbol, firstCadClose);
       const indexedClose = (cadClose / firstCadClose) * 100;
       const indexedDividend =
-        ((row.dividendsBySymbol[symbol] * row.usdCad * (1 - distributionTaxDrag)) /
+        ((toCadValue(row.dividendsBySymbol[symbol], symbol, row.usdCad) *
+          (1 - distributionTaxDrag)) /
           firstCadClose) *
         100;
       priceParts.set(row.date, (priceParts.get(row.date) ?? 0) + indexedClose * weight);
@@ -381,6 +438,14 @@ function fillForwardClose(rows: MarketRow[], date: string): number {
     throw new Error(`No exchange rate available on or before ${date}`);
   }
   return candidate.close;
+}
+
+function toCadValue(value: number, symbol: string, usdCad: number): number {
+  return isCanadianListedSymbol(symbol) ? value : value * usdCad;
+}
+
+function isCanadianListedSymbol(symbol: string): boolean {
+  return symbol.endsWith('.TO');
 }
 
 function correlation(left: number[], right: number[]): number {

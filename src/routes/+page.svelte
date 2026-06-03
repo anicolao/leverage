@@ -16,6 +16,7 @@
     DEFAULT_DCA_SCENARIO_PARAMETERS,
     leverageTargetFromPercent
   } from '$lib/backtest/defaultScenario';
+  import { DEFAULT_ETF_STRATEGY, type EtfStrategy } from '$lib/backtest/marketData';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -25,39 +26,55 @@
   const padding = { top: 24, right: 78, bottom: 44, left: 64 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
-  const chartOptions = {
+  type ChartKey = 'totalReturn' | 'price' | 'distributions';
+  type ValueKind = 'money';
+  type XKind = 'date' | 'year';
+
+  const formatWeights = (weights: Record<string, number>) =>
+    Object.entries(weights)
+      .map(([symbol, weight]) => {
+        const percentage = new Intl.NumberFormat('en-CA', {
+          style: 'percent',
+          maximumFractionDigits: 2
+        }).format(weight);
+        return `${percentage} ${symbol}`;
+      })
+      .join(', ');
+
+  let selectedStrategy = $state<EtfStrategy>(DEFAULT_ETF_STRATEGY);
+  let selectedResult = $derived(data.strategyResults[selectedStrategy]);
+  let selectedConfig = $derived(selectedResult.config);
+  let selectedWeightDescription = $derived(formatWeights(selectedConfig.syntheticWeights));
+  let selectedTickerName = $derived(selectedConfig.ticker.replace('.TO', ''));
+  let chartOptions = $derived({
     totalReturn: {
       label: 'Total Return',
       title: 'Total return',
-      description:
-        'Growth of $100. Proxy weights: 55% SPY, 35% EFA, 10% EEM, converted to CAD with CAD=X, less 0.22% annual MER and calibrated distribution-tax drag.',
-      actualLabel: 'Real XAW.TO total return',
+      description: `Growth of $100. Proxy weights: ${selectedWeightDescription}; US-listed components are converted to CAD with CAD=X, then reduced by 0.22% annual MER and the calibrated distribution-tax drag.`,
+      actualLabel: `Real ${selectedConfig.ticker} total return`,
       syntheticLabel: 'Synthetic total return',
-      valueKind: 'money',
-      xKind: 'date'
+      valueKind: 'money' as const,
+      xKind: 'date' as const
     },
     price: {
       label: 'Price Action',
       title: 'Raw price action',
-      description: 'Daily close price with distributions excluded. The synthetic proxy is scaled to XAW.TO at the first overlapping close.',
-      actualLabel: 'Raw XAW.TO close',
+      description: `Daily close price with distributions excluded. The synthetic proxy is scaled to ${selectedConfig.ticker} at the first overlapping close.`,
+      actualLabel: `Raw ${selectedConfig.ticker} close`,
       syntheticLabel: 'Synthetic price proxy',
-      valueKind: 'money',
-      xKind: 'date'
+      valueKind: 'money' as const,
+      xKind: 'date' as const
     },
     distributions: {
       label: 'Dividends',
       title: 'Annual distributions',
-      description: 'Annual cash distributions per XAW.TO share, with the synthetic proxy scaled into XAW.TO share-price space.',
-      actualLabel: 'Raw XAW.TO distributions',
+      description: `Annual cash distributions per ${selectedConfig.ticker} share, with the synthetic proxy scaled into ${selectedConfig.ticker} share-price space.`,
+      actualLabel: `Raw ${selectedConfig.ticker} distributions`,
       syntheticLabel: 'Synthetic distributions',
-      valueKind: 'money',
-      xKind: 'year'
+      valueKind: 'money' as const,
+      xKind: 'year' as const
     }
-  } as const;
-  type ChartKey = keyof typeof chartOptions;
-  type ValueKind = (typeof chartOptions)[ChartKey]['valueKind'];
-  type XKind = (typeof chartOptions)[ChartKey]['xKind'];
+  });
   type SeriesPoint = {
     date: string;
     actual: number;
@@ -66,7 +83,7 @@
 
   let activeChart = $state<ChartKey>('totalReturn');
   let chart = $derived(chartOptions[activeChart]);
-  let activeSeries = $derived(data.series[activeChart]);
+  let activeSeries = $derived(selectedResult.series[activeChart]);
   let actualByDate = $derived(new Map(activeSeries.actual.map((row) => [row.date, row.close])));
   let points = $derived(activeSeries.synthetic
     .map((row) => ({
@@ -116,8 +133,8 @@
     hoveredPoint = nearestPoint(points, pointerSvgX(event, svg), x);
   }
 
-  let firstDate = $derived(points[0]?.date ?? data.start);
-  let lastDate = $derived(points[points.length - 1]?.date ?? data.start);
+  let firstDate = $derived(points[0]?.date ?? selectedResult.start);
+  let lastDate = $derived(points[points.length - 1]?.date ?? selectedResult.start);
   let tableRows = $derived(
     [...points].reverse().map((row) => {
       const difference = row.synthetic - row.actual;
@@ -190,15 +207,13 @@
     primeRates: data.primeRates,
     capitalizationPolicy
   });
-  let simulationRows = $derived(
-    simulateDcaPortfolio(data.simulationSeries, simulationInput)
-  );
+  let simulationRows = $derived(simulateDcaPortfolio(selectedResult.simulationSeries, simulationInput));
   let outcomeHorizonDays = $derived(
     equityOutcomeHorizonDays(outcomeHorizonYears)
   );
   let outcomeStartDates = $derived(
     equityOutcomeCompleteStartDates(
-      data.simulationSeries,
+      selectedResult.simulationSeries,
       simulationInput.startDate,
       outcomeHorizonDays,
       1_000
@@ -324,7 +339,7 @@
       return;
     }
 
-    const sortedRows = [...data.simulationSeries].sort((left, right) =>
+    const sortedRows = [...selectedResult.simulationSeries].sort((left, right) =>
       left.date.localeCompare(right.date)
     );
     const outcomes: number[] = [];
@@ -364,7 +379,7 @@
   }
 
   function initialSimulationStartDate() {
-    return data.simulationSeries[0]?.date ?? data.start;
+    return selectedResult.simulationSeries[0]?.date ?? selectedResult.start;
   }
 
   function pointerSvgX(event: PointerEvent, svg: SVGSVGElement) {
@@ -389,36 +404,36 @@
 </script>
 
 <svelte:head>
-  <title>Synthetic XAW.TO Total Return Replication</title>
+  <title>Synthetic ETF Total Return Replication</title>
 </svelte:head>
 
 <main>
   <section class="summary">
     <div>
-      <p class="eyebrow">XAW.TO proxy validation</p>
-      <h1>Synthetic global equity total return versus real XAW.TO</h1>
+      <p class="eyebrow">{selectedConfig.ticker} proxy validation</p>
+      <h1>Synthetic {selectedTickerName} total return versus real {selectedConfig.ticker}</h1>
     </div>
     <div class="stats">
       <div>
         <span>Overlap</span>
-        <strong>{data.stats.overlapDays.toLocaleString('en-CA')} days</strong>
+        <strong>{selectedResult.stats.overlapDays.toLocaleString('en-CA')} days</strong>
       </div>
       <div>
         <span>Correlation</span>
-        <strong>{data.stats.correlation.toFixed(4)}</strong>
+        <strong>{selectedResult.stats.correlation.toFixed(4)}</strong>
       </div>
       <div>
         <span>Mean Abs. Error</span>
-        <strong>{formatPercent(data.stats.meanAbsolutePercentError)}</strong>
+        <strong>{formatPercent(selectedResult.stats.meanAbsolutePercentError)}</strong>
       </div>
       <div>
         <span>Distribution Drag</span>
-        <strong>{formatPercent(data.calibration.distributionTaxDrag)}</strong>
+        <strong>{formatPercent(selectedResult.calibration.distributionTaxDrag)}</strong>
       </div>
     </div>
   </section>
 
-  <section class="chart-shell" aria-label="Synthetic XAW.TO versus actual XAW.TO comparison charts">
+  <section class="chart-shell" aria-label={`Synthetic ${selectedConfig.ticker} versus actual ${selectedConfig.ticker} comparison charts`}>
     <div class="tabs" role="tablist" aria-label="Chart type">
       {#each Object.entries(chartOptions) as [key, option]}
         <button
@@ -445,9 +460,9 @@
       </div>
     </div>
     <div class="source-links" aria-label="Yahoo Finance source links">
-      <a href={data.yahooLinks.chart} target="_blank" rel="noreferrer">Yahoo XAW chart</a>
-      <a href={data.yahooLinks.prices} target="_blank" rel="noreferrer">Yahoo XAW price table</a>
-      <a href={data.yahooLinks.dividends} target="_blank" rel="noreferrer">Yahoo XAW dividend table</a>
+      <a href={selectedResult.yahooLinks.chart} target="_blank" rel="noreferrer">Yahoo {selectedTickerName} chart</a>
+      <a href={selectedResult.yahooLinks.prices} target="_blank" rel="noreferrer">Yahoo {selectedTickerName} price table</a>
+      <a href={selectedResult.yahooLinks.dividends} target="_blank" rel="noreferrer">Yahoo {selectedTickerName} dividend table</a>
     </div>
 
     <svg
@@ -458,7 +473,7 @@
         hoveredPoint = null;
       }}
     >
-      <title>{chart.title} comparison for synthetic XAW.TO and actual XAW.TO</title>
+      <title>{chart.title} comparison for synthetic {selectedConfig.ticker} and actual {selectedConfig.ticker}</title>
       <line
         x1={padding.left}
         y1={padding.top}
@@ -550,7 +565,7 @@
     <div class="simulator-header">
       <div>
         <p class="eyebrow">Portfolio simulator</p>
-        <h2>Monthly leveraged DCA into the synthetic proxy</h2>
+        <h2>Monthly leveraged DCA into the synthetic {selectedTickerName} proxy</h2>
         <p>
           Leverage is margin debt divided by brokerage assets. HELOC debt funds monthly
           contributions and capitalized interest, but sits outside the margin leverage target.
@@ -566,11 +581,19 @@
 
     <div class="control-grid">
       <label>
+        <span>ETF strategy</span>
+        <select bind:value={selectedStrategy}>
+          {#each data.strategyOptions as strategy}
+            <option value={strategy.key}>{strategy.key} - {strategy.displayName}</option>
+          {/each}
+        </select>
+      </label>
+      <label>
         <span>Start date</span>
         <input
           type="date"
-          min={data.simulationSeries[0]?.date}
-          max={data.simulationSeries.at(-1)?.date}
+          min={selectedResult.simulationSeries[0]?.date}
+          max={selectedResult.simulationSeries.at(-1)?.date}
           bind:value={simulationStartDate}
         />
       </label>
@@ -617,6 +640,10 @@
         </select>
       </label>
     </div>
+
+    <p class="strategy-note">
+      {selectedConfig.displayName}. {selectedConfig.notes} Proxy mix: {selectedWeightDescription}.
+    </p>
 
     <div class="sim-stats">
       <div>
@@ -1001,6 +1028,13 @@
     color: #46544b;
     font-size: 0.82rem;
     font-weight: 800;
+  }
+
+  .strategy-note {
+    margin: -4px 0 18px;
+    color: #4d5a52;
+    font-size: 0.92rem;
+    line-height: 1.45;
   }
 
   input,

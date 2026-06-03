@@ -4,48 +4,64 @@
 }
 ---
 
-# The Synthetic XAW Proxy
+# Single-Ticker ETF Proxies
 
-`XAW.TO` is an exchange-traded fund, or ETF, that holds global equities outside
-Canada. The simulator wants a longer history than real XAW provides, so it
-builds a synthetic proxy for the years before XAW existed.
+The simulator can now run the same leveraged dollar-cost averaging strategy
+against several Canadian-listed exchange-traded funds, or ETFs. A
+Canadian-listed ETF trades in Canadian dollars on the Toronto Stock Exchange,
+which matters because the simulator computes share purchases, margin debt, and
+HELOC debt in Canadian dollars.
 
-The proxy is a model assumption, not measured pre-inception XAW history.
+Each selected ETF has real Yahoo Finance price and distribution rows only after
+its inception date. The simulator wants to test stress windows before those
+funds existed, so it builds a synthetic proxy for the earlier years and scales
+that proxy into the selected ETF's share-price space at the first actual close.
+The proxy is a model assumption, not measured pre-inception fund history.
 
 ## Why The Proxy Exists
 
 The strategy's risks show up in old stress windows such as 2008-2009. Without a
-pre-inception proxy, the simulator would miss those years. The cost of using a
-proxy is that the reader must understand how it is built and where it can be
-wrong.
+pre-inception proxy, the simulator would miss those years, which would make a
+leveraged strategy look safer than it really is. The cost of using a proxy is
+that the reader must understand how it is built and where it can be wrong.
 
-## Proxy Weights
+## Strategy Choices
 
-The proxy combines three US-listed ETFs and converts their values to Canadian
-dollars using `CAD=X`.
+The production configuration defines the ETF choices, their actual Yahoo
+tickers, their inception dates, and the proxy weights used before actual data
+exists. The inception date matters because validation can only start once the
+real ETF has traded. The weights matter because they define the market exposure
+used in earlier history.
 
-<<r:synthetic-xaw-default-weights>>
+<<r:single-ticker-strategies>>
+
+<strategy-config-demo></strategy-config-demo>
 
 `SPY` represents US equities, `EFA` represents developed markets outside North
-America, and `EEM` represents emerging markets. The weights matter because they
-define the exposure mix before actual XAW data exists.
+America, `EEM` represents emerging markets, and `XIU.TO` represents Canadian
+large-cap equities. The US-listed proxy components trade in US dollars, so the
+simulator converts them to Canadian dollars with `CAD=X`. The Canadian-listed
+`XIU.TO` component already trades in Canadian dollars, so converting it again
+would overstate or understate Canadian exposure whenever the exchange rate
+moved.
 
 ## Total Return Proxy
 
 The total-return proxy estimates growth with distributions reinvested. This is
-the cleanest validation view because actual XAW total return and synthetic total
+the cleanest validation view because actual ETF total return and synthetic total
 return can be compared over the overlap period. Production code aligns dates,
-converts each component to CAD, builds each component total-return index,
-applies weights, tracks distributions, and applies the expense ratio.
+converts each component to CAD when needed, builds each component total-return
+index, applies weights, tracks distributions, and applies the expense ratio.
 
 <<r:synthetic-xaw-total-return>>
 
 The example below uses stored Yahoo Finance rows for 2023, when actual
-`XAW.TO`, `SPY`, `EFA`, `EEM`, and `CAD=X` data all exist. It is intentionally
-an overlap-window example rather than a toy fixture: the chart shows the full
-year, and the table shows the first 15 comparable trading days so the reader
-can inspect actual XAW values beside the synthetic values computed by the same
-production helpers.
+`XAW.TO`, `SPY`, `EFA`, `EEM`, and `CAD=X` data all exist. XAW remains the
+fixture example because the stored real-data overlap currently covers XAW. It
+is intentionally an overlap-window example rather than a toy fixture: the chart
+shows the full year, and the table shows the first 15 comparable trading days
+so the reader can inspect actual XAW values beside the synthetic values
+computed by the same production helpers.
 
 <synthetic-xaw-demo></synthetic-xaw-demo>
 
@@ -62,9 +78,11 @@ indexed space, and applies the expense ratio.
 
 ## Validation Artifact
 
-`tests/fixtures/market-overlap-2023.json` stores the real overlap rows used by
-the example. `book/examples/examples.test.ts` checks that the fixture contains
-enough actual XAW rows and that the computed comparison has high overlap and
-correlation. `src/lib/backtest/xaw.test.ts` still validates the lower-level
-proxy mechanics against the Python fixture implementation, the XAW inception
-anchor scaling rule, and fill-forward behavior for missing component dates.
+`tests/fixtures/market-overlap-2023.json` stores the real XAW overlap rows used
+by the example. `book/examples/examples.test.ts` checks that the fixture
+contains enough actual XAW rows and that the computed comparison has high
+overlap and correlation. `src/lib/backtest/xaw.test.ts` still validates the
+lower-level proxy mechanics against the Python fixture implementation, the XAW
+inception anchor scaling rule, fill-forward behavior for missing component
+dates, normalized strategy weights, and the rule that Canadian-listed proxy
+components are not converted through `CAD=X`.

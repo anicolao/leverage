@@ -1,11 +1,17 @@
 import {
+  DEFAULT_ETF_STRATEGY,
+  SINGLE_TICKER_STRATEGIES,
   annualDistributions,
   buildSyntheticXawProxy,
   buildSyntheticXawPriceProxy,
   calibrateDistributionTaxDrag,
   calculateComparisonStats,
   scaleToActualAtStart,
-  totalReturnIndex
+  totalReturnIndex,
+  type EtfStrategy,
+  type MarketRow,
+  type ProxyWeightConfig,
+  type WeightedSymbols
 } from '$lib/backtest/marketData';
 import { fetchCanadianPrimeRates } from '$lib/backtest/bankOfCanada';
 import { fetchYahooHistory } from '$lib/backtest/yahoo';
@@ -14,65 +20,94 @@ export const prerender = true;
 
 export async function load() {
   const simulationStart = '2006-01-01';
-  const xawStart = '2015-02-10';
-  const [spy, efa, eem, usdCad, actualXaw, primeRates] = await Promise.all([
-    fetchYahooHistory('SPY', simulationStart),
-    fetchYahooHistory('EFA', simulationStart),
-    fetchYahooHistory('EEM', simulationStart),
-    fetchYahooHistory('CAD=X', simulationStart),
-    fetchYahooHistory('XAW.TO', xawStart),
+  const strategies = SINGLE_TICKER_STRATEGIES;
+  const proxySymbols = unique(
+    Object.values(strategies).flatMap((strategy) => Object.keys(strategy.syntheticWeights))
+  );
+  const targetSymbols = unique(Object.values(strategies).map((strategy) => strategy.ticker));
+  const allYahooSymbols = unique([...proxySymbols, ...targetSymbols, 'CAD=X']);
+
+  const [marketEntries, primeRates] = await Promise.all([
+    Promise.all(
+      allYahooSymbols.map(async (symbol) => [
+        symbol,
+        await fetchYahooHistory(symbol, historyStartForSymbol(symbol, strategies, simulationStart))
+      ] as const)
+    ),
     fetchCanadianPrimeRates(simulationStart)
   ]);
 
-  const symbolData = { SPY: spy, EFA: efa, EEM: eem };
-  const validationSymbolData = {
-    SPY: rowsFrom(spy, xawStart),
-    EFA: rowsFrom(efa, xawStart),
-    EEM: rowsFrom(eem, xawStart)
+  const marketRows = Object.fromEntries(marketEntries) as Record<string, MarketRow[]>;
+  const strategyResults = Object.fromEntries(
+    (Object.entries(strategies) as Array<[EtfStrategy, ProxyWeightConfig]>).map(([key, config]) => [
+      key,
+      buildStrategyResult(config, marketRows, simulationStart)
+    ])
+  ) as Record<EtfStrategy, ReturnType<typeof buildStrategyResult>>;
+
+  return {
+    defaultStrategy: DEFAULT_ETF_STRATEGY,
+    strategyOptions: (Object.entries(strategies) as Array<[EtfStrategy, ProxyWeightConfig]>).map(
+      ([key, config]) => ({ key, ...config })
+    ),
+    strategyResults,
+    primeRates
   };
-  const validationUsdCad = rowsFrom(usdCad, xawStart);
+}
+
+function buildStrategyResult(
+  config: ProxyWeightConfig,
+  marketRows: Record<string, MarketRow[]>,
+  simulationStart: string
+) {
+  const actualRows = rowsFrom(marketRows[config.ticker] ?? [], config.inceptionDate);
+  const usdCadRows = marketRows['CAD=X'] ?? [];
+  const symbolData = weightedSymbolRows(marketRows, config.syntheticWeights, simulationStart);
+  const validationSymbolData = weightedSymbolRows(
+    marketRows,
+    config.syntheticWeights,
+    config.inceptionDate
+  );
+  const validationUsdCad = rowsFrom(usdCadRows, config.inceptionDate);
   const distributionTaxDrag = calibrateDistributionTaxDrag(
     validationSymbolData,
     validationUsdCad,
-    actualXaw
+    actualRows,
+    config.syntheticWeights
   );
   const synthetic = buildSyntheticXawProxy(
     validationSymbolData,
     validationUsdCad,
-    undefined,
+    config.syntheticWeights,
     undefined,
     distributionTaxDrag
   );
-  const actualTotalReturn = totalReturnIndex(actualXaw);
+  const actualTotalReturn = totalReturnIndex(actualRows);
   const validationSyntheticPrice = buildSyntheticXawPriceProxy(
     validationSymbolData,
     validationUsdCad,
-    undefined,
+    config.syntheticWeights,
     undefined,
     distributionTaxDrag
   );
   const simulationSyntheticPriceBase = buildSyntheticXawPriceProxy(
     symbolData,
-    usdCad,
-    undefined,
+    usdCadRows,
+    config.syntheticWeights,
     undefined,
     distributionTaxDrag
   );
-  const scaledSyntheticPrice = scaleToActualAtStart(validationSyntheticPrice, actualXaw);
+  const scaledSyntheticPrice = scaleToActualAtStart(validationSyntheticPrice, actualRows);
   const simulationSyntheticPrice = scaleToActualAtStart(
     simulationSyntheticPriceBase,
-    actualXaw,
+    actualRows,
     true
   );
-  const distributionSeries = {
-    synthetic: annualDistributions(scaledSyntheticPrice),
-    actual: annualDistributions(actualXaw)
-  };
-  const stats = calculateComparisonStats(synthetic, actualTotalReturn);
-  const end = actualXaw.at(-1)?.date ?? xawStart;
+  const end = actualRows.at(-1)?.date ?? config.inceptionDate;
 
   return {
-    start: xawStart,
+    start: config.inceptionDate,
+    config,
     series: {
       totalReturn: {
         synthetic,
@@ -80,26 +115,52 @@ export async function load() {
       },
       price: {
         synthetic: scaledSyntheticPrice,
-        actual: actualXaw
+        actual: actualRows
       },
-      distributions: distributionSeries
+      distributions: {
+        synthetic: annualDistributions(scaledSyntheticPrice),
+        actual: annualDistributions(actualRows)
+      }
     },
     simulationSeries: simulationSyntheticPrice,
-    primeRates,
-    stats,
+    stats: calculateComparisonStats(synthetic, actualTotalReturn),
     calibration: {
       distributionTaxDrag
     },
     yahooLinks: {
-      chart: 'https://finance.yahoo.com/quote/XAW.TO/chart/',
-      prices: yahooHistoricalUrl(xawStart, end, 'history'),
-      dividends: yahooHistoricalUrl(xawStart, end, 'div')
+      chart: `https://finance.yahoo.com/quote/${encodeURIComponent(config.ticker)}/chart/`,
+      prices: yahooHistoricalUrl(config.ticker, config.inceptionDate, end, 'history'),
+      dividends: yahooHistoricalUrl(config.ticker, config.inceptionDate, end, 'div')
     }
   };
 }
 
-function yahooHistoricalUrl(start: string, end: string, filter: 'history' | 'div') {
-  const url = new URL('https://finance.yahoo.com/quote/XAW.TO/history/');
+function weightedSymbolRows(
+  marketRows: Record<string, MarketRow[]>,
+  weights: Record<string, number>,
+  start: string
+): WeightedSymbols {
+  return Object.fromEntries(
+    Object.keys(weights).map((symbol) => [symbol, rowsFrom(marketRows[symbol] ?? [], start)])
+  );
+}
+
+function historyStartForSymbol(
+  symbol: string,
+  strategies: Record<EtfStrategy, ProxyWeightConfig>,
+  simulationStart: string
+): string {
+  const targetStrategy = Object.values(strategies).find((strategy) => strategy.ticker === symbol);
+  return targetStrategy?.inceptionDate ?? simulationStart;
+}
+
+function yahooHistoricalUrl(
+  ticker: string,
+  start: string,
+  end: string,
+  filter: 'history' | 'div'
+) {
+  const url = new URL(`https://finance.yahoo.com/quote/${ticker}/history/`);
   url.searchParams.set('period1', String(toUnixSeconds(start)));
   url.searchParams.set('period2', String(toUnixSeconds(addDays(end, 1))));
   url.searchParams.set('interval', '1d');
@@ -111,6 +172,10 @@ function yahooHistoricalUrl(start: string, end: string, filter: 'history' | 'div
 
 function rowsFrom<T extends { date: string }>(rows: T[], start: string): T[] {
   return rows.filter((row) => row.date >= start);
+}
+
+function unique<T>(values: T[]): T[] {
+  return [...new Set(values)];
 }
 
 function toUnixSeconds(date: string): number {

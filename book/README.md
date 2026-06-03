@@ -29,7 +29,7 @@ same helpers that the app uses.
   `src/lib/backtest/dcaSimulator.ts`
 - Production region: `default-dca-scenario-parameters` in
   `src/lib/backtest/defaultScenario.ts`
-- Production regions: `synthetic-xaw-default-weights`,
+- Production regions: `single-ticker-strategies`, `synthetic-xaw-default-weights`,
   `synthetic-xaw-total-return`, and `synthetic-xaw-price` in
   `src/lib/backtest/marketData.ts`
 - Production regions: `annual-distributions` and `total-return-index` in
