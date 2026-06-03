@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/litscript/schemas/litsconfig-schema.json",
   "outDir": "./book/generated",
-  "files": ["book/**/*.md"],
+  "files": ["index.md", "book/**/*.md"],
   "exclude": [
     ".git",
     "node_modules",
